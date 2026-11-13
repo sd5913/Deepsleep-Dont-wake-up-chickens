@@ -1,13 +1,15 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scenes/player.gd" id="1"]
 [ext_resource type="Texture2D" path="res://assets/art/lamplight.svg" id="2"]
+
+[ext_resource type="Script" path="res://scenes/character_art.gd" id="3"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_player"]
 radius = 14.0
 
 [node name="Player" type="CharacterBody2D"]
-z_index = 2
+z_index = 0
 collision_mask = 2
 motion_mode = 1
 script = ExtResource("1")
@@ -27,19 +29,6 @@ color = Color(0.035, 0.075, 0.11, 0.65)
 polygon = PackedVector2Array(-13, 0, -9, -5, 9, -5, 13, 0, 9, 6, -9, 6)
 
 [node name="Art" type="Node2D" parent="."]
-
-[node name="Outline" type="Polygon2D" parent="Art"]
-color = Color(0.66, 1, 0.94, 1)
-polygon = PackedVector2Array(0, -14, 10, -10, 14, 0, 10, 10, 0, 14, -10, 10, -14, 0, -10, -10)
-
-[node name="Coat" type="Polygon2D" parent="Art"]
-color = Color(0.16, 0.64, 0.62, 1)
-polygon = PackedVector2Array(0, -10, 7, -7, 10, 0, 7, 7, 0, 10, -7, 7, -10, 0, -7, -7)
-
-[node name="Cap" type="Polygon2D" parent="Art"]
-color = Color(0.09, 0.19, 0.24, 1)
-polygon = PackedVector2Array(-6, -5, 6, -5, 7, 0, -7, 0)
-
-[node name="Facing" type="Polygon2D" parent="Art"]
-color = Color(0.66, 1, 0.94, 1)
-polygon = PackedVector2Array(-4, -12, 0, -20, 4, -12)
+script = ExtResource("3")
+character = 0
+sprite_height = 60.0

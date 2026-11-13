@@ -1,8 +1,8 @@
 class_name CoopAlert
 extends Node
 
-@export_range(0.0, 100.0, 0.5) var sight_gain_per_second := 16.0
-@export_range(0.0, 100.0, 0.5) var cluck_gain := 10.0
+@export_range(0.0, 100.0, 0.5) var sight_gain_per_second := 8.0
+@export_range(0.0, 100.0, 0.5) var cluck_gain := 14.0
 @export_range(0.0, 10.0, 0.1) var calm_delay := 3.0
 @export_range(0.0, 100.0, 0.5) var decay_per_second := 10.0
 

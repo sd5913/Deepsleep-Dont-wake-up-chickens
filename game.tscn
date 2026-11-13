@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3 uid="uid://b1a03c6yp4wr2"]
+[gd_scene load_steps=21 format=3 uid="uid://b1a03c6yp4wr2"]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/crate.tscn" id="2"]
@@ -11,10 +11,14 @@
 [ext_resource type="PackedScene" path="res://scenes/feed.tscn" id="9"]
 [ext_resource type="Script" path="res://scenes/coop_layout.gd" id="10"]
 [ext_resource type="Texture2D" uid="uid://dr8wts22olgfu" path="res://assets/art/coop_floor.svg" id="11"]
-[ext_resource type="Texture2D" uid="uid://cd3oy781hvy6s" path="res://assets/art/night_yard.svg" id="12"]
+[ext_resource type="Texture2D" path="res://assets/art/coop_backdrop.png" id="12"]
 [ext_resource type="Texture2D" uid="uid://j731e5muqasj" path="res://assets/art/lamplight.svg" id="13"]
 [ext_resource type="PackedScene" path="res://scenes/round_audio.tscn" id="14"]
 [ext_resource type="FontFile" uid="uid://drk51hilm2qvy" path="res://assets/fonts/CoopUI.ttf" id="15"]
+
+[ext_resource type="Script" path="res://scenes/coop_backdrop.gd" id="16"]
+
+[ext_resource type="Script" path="res://scenes/feed_aim.gd" id="17"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_wall_horizontal"]
 size = Vector2(936, 24)
@@ -27,16 +31,21 @@ size = Vector2(116, 44)
 
 [node name="Game" type="Node2D"]
 script = ExtResource("5")
+y_sort_enabled = true
 
 [node name="Night" type="Sprite2D" parent="."]
 texture = ExtResource("12")
 centered = false
+z_index = -10
+script = ExtResource("16")
 
 [node name="Floor" type="Polygon2D" parent="."]
-color = Color(0.19, 0.23, 0.31, 1)
+z_index = -9
+color = Color(0.19, 0.23, 0.31, 0)
 polygon = PackedVector2Array(36, 74, 924, 74, 924, 478, 36, 478)
 
 [node name="Boards" type="Sprite2D" parent="Floor"]
+visible = false
 position = Vector2(480, 276)
 texture = ExtResource("11")
 
@@ -91,6 +100,7 @@ position = Vector2(380, 285)
 position = Vector2(380, 145)
 
 [node name="Chickens" type="Node2D" parent="."]
+y_sort_enabled = true
 
 [node name="WestHen" parent="Chickens" node_paths=PackedStringArray("patrol_points", "player") instance=ExtResource("6")]
 position = Vector2(173, 169)
@@ -102,14 +112,14 @@ position = Vector2(805, 354)
 patrol_points = [NodePath("../../PatrolRoutes/East/SouthWest"), NodePath("../../PatrolRoutes/East/NorthWest"), NodePath("../../PatrolRoutes/East/NorthEast"), NodePath("../../PatrolRoutes/East/SouthEast")]
 player = NodePath("../../Player")
 patrol_speed = 72.0
-waypoint_pause = 0.85
+waypoint_pause = 1.2
 
 [node name="CenterHen" parent="Chickens" node_paths=PackedStringArray("patrol_points", "player") instance=ExtResource("6")]
 position = Vector2(380, 145)
 patrol_points = [NodePath("../../PatrolRoutes/Center/NorthEast"), NodePath("../../PatrolRoutes/Center/SouthEast"), NodePath("../../PatrolRoutes/Center/SouthWest"), NodePath("../../PatrolRoutes/Center/NorthWest")]
 player = NodePath("../../Player")
 patrol_speed = 60.0
-waypoint_pause = 1.0
+waypoint_pause = 1.3
 
 [node name="Walls" type="StaticBody2D" parent="."]
 collision_layer = 2
@@ -120,6 +130,7 @@ position = Vector2(480, 62)
 shape = SubResource("RectangleShape2D_wall_horizontal")
 
 [node name="Surface" type="Polygon2D" parent="Walls/North"]
+visible = false
 color = Color(0.33, 0.39, 0.51, 1)
 polygon = PackedVector2Array(-468, -12, 468, -12, 468, 12, -468, 12)
 
@@ -128,6 +139,7 @@ position = Vector2(480, 490)
 shape = SubResource("RectangleShape2D_wall_horizontal")
 
 [node name="Surface" type="Polygon2D" parent="Walls/South"]
+visible = false
 color = Color(0.33, 0.39, 0.51, 1)
 polygon = PackedVector2Array(-468, -12, 468, -12, 468, 12, -468, 12)
 
@@ -136,6 +148,7 @@ position = Vector2(24, 276)
 shape = SubResource("RectangleShape2D_wall_vertical")
 
 [node name="Surface" type="Polygon2D" parent="Walls/West"]
+visible = false
 color = Color(0.33, 0.39, 0.51, 1)
 polygon = PackedVector2Array(-12, -202, 12, -202, 12, 202, -12, 202)
 
@@ -144,49 +157,57 @@ position = Vector2(936, 276)
 shape = SubResource("RectangleShape2D_wall_vertical")
 
 [node name="Surface" type="Polygon2D" parent="Walls/East"]
+visible = false
 color = Color(0.33, 0.39, 0.51, 1)
 polygon = PackedVector2Array(-12, -202, 12, -202, 12, 202, -12, 202)
 
 [node name="Crates" type="Node2D" parent="."]
+y_sort_enabled = true
 
 [node name="WestCrate" parent="Crates" instance=ExtResource("2")]
-position = Vector2(255, 252)
+position = Vector2(260, 355)
 
 [node name="CenterCrate" parent="Crates" instance=ExtResource("2")]
-position = Vector2(480, 226)
+position = Vector2(480, 230)
 
 [node name="EastCrate" parent="Crates" instance=ExtResource("2")]
-position = Vector2(705, 282)
+position = Vector2(715, 355)
 
 [node name="InteriorWalls" type="Node2D" parent="."]
 
 [node name="Nests" type="Node2D" parent="."]
+y_sort_enabled = true
 
 [node name="Nest1" parent="Nests" instance=ExtResource("3")]
-position = Vector2(116, 126)
+position = Vector2(145, 133)
+risky = true
 
 [node name="Nest2" parent="Nests" instance=ExtResource("3")]
-position = Vector2(330, 120)
+position = Vector2(330, 133)
+risky = true
 
 [node name="Nest3" parent="Nests" instance=ExtResource("3")]
-position = Vector2(580, 132)
+position = Vector2(610, 133)
+risky = true
 
 [node name="Nest4" parent="Nests" instance=ExtResource("3")]
-position = Vector2(827, 132)
+position = Vector2(715, 435)
 
 [node name="Nest5" parent="Nests" instance=ExtResource("3")]
-position = Vector2(145, 394)
+position = Vector2(260, 435)
 
 [node name="Nest6" parent="Nests" instance=ExtResource("3")]
-position = Vector2(818, 396)
+position = Vector2(108, 285)
 
 [node name="Feed" type="Node2D" parent="."]
+y_sort_enabled = true
 script = ExtResource("8")
 
 [node name="Supplies" type="Node2D" parent="Feed"]
+y_sort_enabled = true
 
 [node name="WestFeed" parent="Feed/Supplies" instance=ExtResource("9")]
-position = Vector2(335, 374)
+position = Vector2(390, 380)
 
 [node name="NorthFeed" parent="Feed/Supplies" instance=ExtResource("9")]
 position = Vector2(475, 138)
@@ -195,8 +216,10 @@ position = Vector2(475, 138)
 position = Vector2(852, 278)
 
 [node name="Baits" type="Node2D" parent="Feed"]
+y_sort_enabled = true
 
 [node name="Exit" type="Area2D" parent="."]
+z_index = -5
 position = Vector2(480, 447)
 collision_layer = 0
 monitorable = false
@@ -205,11 +228,11 @@ monitorable = false
 shape = SubResource("RectangleShape2D_exit")
 
 [node name="Border" type="Polygon2D" parent="Exit"]
-color = Color(0.48, 0.87, 0.5, 1)
+color = Color(0.93, 0.75, 0.35, 0.65)
 polygon = PackedVector2Array(-58, -22, 58, -22, 58, 22, -58, 22)
 
 [node name="Threshold" type="Polygon2D" parent="Exit"]
-color = Color(0.16, 0.34, 0.24, 1)
+color = Color(0.12, 0.15, 0.2, 0.45)
 polygon = PackedVector2Array(-55, -19, 55, -19, 55, 19, -55, 19)
 
 [node name="Sign" type="Label" parent="Exit"]
@@ -217,7 +240,7 @@ offset_left = -55.0
 offset_top = -19.0
 offset_right = 55.0
 offset_bottom = 19.0
-theme_override_colors/font_color = Color(0.8, 1, 0.77, 1)
+theme_override_colors/font_color = Color(1, 0.9, 0.64, 1)
 theme_override_fonts/font = ExtResource("15")
 theme_override_font_sizes/font_size = 16
 text = "入口 / 撤离"
@@ -234,6 +257,7 @@ script = ExtResource("7")
 
 [node name="Layout" type="Node" parent="."]
 script = ExtResource("10")
+use_fixed_layout = true
 
 [node name="FarmerEntrance" type="Marker2D" parent="."]
 position = Vector2(480, 103)
@@ -251,3 +275,8 @@ polygon = PackedVector2Array(-28, -29, 28, -29, 28, -22, -28, -22)
 [node name="HUD" parent="." instance=ExtResource("4")]
 
 [node name="Audio" parent="." instance=ExtResource("14")]
+
+[node name="FeedAim" type="Node2D" parent="."]
+visible = false
+z_index = 5
+script = ExtResource("17")

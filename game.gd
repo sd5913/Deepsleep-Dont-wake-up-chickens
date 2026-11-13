@@ -3,7 +3,7 @@ extends Node2D
 const FARMER_SCENE := preload("res://scenes/farmer.tscn")
 
 @export_range(1.0, 600.0, 1.0) var round_seconds := 120.0
-@export_range(1, 99, 1) var egg_goal := 6
+@export_range(1, 99, 1) var egg_goal := 8
 @export_range(0.1, 10.0, 0.1) var search_seconds := 2.0
 @export_range(0.1, 5.0, 0.05) var search_noise_interval := 0.65
 @export_range(1.0, 100.0, 1.0) var farmer_alert_threshold := 60.0
@@ -35,6 +35,9 @@ var _farmer: CoopFarmer
 var _farmer_armed := true
 var _farmer_warning_left := 0.0
 var _reported_position := Vector2.ZERO
+var _aiming_feed := false
+
+@onready var _feed_aim: Node2D = $FeedAim
 
 @onready var _player: CoopPlayer = $Player
 @onready var _exit: Area2D = $Exit
@@ -100,6 +103,7 @@ func _toggle_pause() -> void:
 		return
 	get_tree().paused = not get_tree().paused
 	if get_tree().paused:
+		_cancel_feed_aim()
 		_hud.show_pause()
 	else:
 		if _interact_released_during_pause:
@@ -130,14 +134,15 @@ func _initialize_round_randomness() -> void:
 	for chicken: CoopChicken in _chickens:
 		chicken.set_patrol_seed(round_rng.randi())
 
-	var nests_left := _nests.size()
-	egg_goal = mini(egg_goal, nests_left * CoopNest.MAX_EGGS)
+	var remaining_capacity := 0
+	for nest: CoopNest in _nests:
+		remaining_capacity += nest.maximum_stock()
+	egg_goal = mini(egg_goal, remaining_capacity)
 	var eggs_needed := egg_goal
 	for nest: CoopNest in _nests:
-		nests_left -= 1
-		# Leave enough capacity in the remaining nests to reach the goal.
-		var minimum := maxi(CoopNest.MIN_EGGS, eggs_needed - nests_left * CoopNest.MAX_EGGS)
-		var stock := stock_rng.randi_range(minimum, CoopNest.MAX_EGGS)
+		remaining_capacity -= nest.maximum_stock()
+		var minimum := maxi(nest.minimum_stock(), eggs_needed - remaining_capacity)
+		var stock := stock_rng.randi_range(minimum, nest.maximum_stock())
 		nest.set_initial_stock(stock)
 		eggs_needed -= stock
 
@@ -173,11 +178,12 @@ func _physics_process(delta: float) -> void:
 	if not searching or Input.is_action_just_released("interact"):
 		_search_elapsed = 0.0
 		_noise_elapsed = 0.0
+	var duration := search_seconds * _nearby_nest.search_multiplier() if _nearby_nest != null else search_seconds
 	if searching:
 		_search_elapsed += delta
-		if _search_elapsed >= search_seconds and _nearby_nest.take_egg():
+		if _search_elapsed >= duration and _nearby_nest.take_egg():
 			_eggs += 1
-			_search_elapsed -= search_seconds
+			_search_elapsed -= duration
 			_audio.play_cue(&"Egg")
 		if _nearby_nest.eggs_left == 0:
 			_search_elapsed = 0.0
@@ -185,15 +191,16 @@ func _physics_process(delta: float) -> void:
 
 	_player.movement_locked = searching
 	_player.searching = searching
-	if Input.is_action_just_pressed("throw_feed"):
-		_throw_feed()
+	_update_feed_aim()
 	_hud.update_feed(_feed.held_count, delta)
 	_update_alert(delta, searching)
 	_update_farmer(delta)
 	_hud.update_status(_eggs, egg_goal, ceili(_time_left))
 	var hint := "按 E 拾取饲料" if pickup != null else _interaction_hint(at_exit, searching)
+	if _aiming_feed:
+		hint = "松开 Q 投放，右键取消"
 	var missing_eggs := egg_goal - _eggs if at_exit and _eggs < egg_goal else 0
-	_hud.update_interaction(hint, _search_elapsed / search_seconds, searching, missing_eggs)
+	_hud.update_interaction(hint, _search_elapsed / duration, searching, missing_eggs)
 
 
 func _find_nearest_nest() -> CoopNest:
@@ -229,9 +236,11 @@ func _update_alert(delta: float, searching: bool) -> void:
 	var seeing_hens := 0
 	var clucks := 0
 	for chicken: CoopChicken in _chickens:
+		if noise_pulse:
+			chicken.hear_search_noise(_player.global_position)
 		if chicken.sees_player:
 			seeing_hens += 1
-		if noise_pulse and chicken.hear_search_noise(_player.global_position):
+		if chicken.take_alarm():
 			clucks += 1
 
 	if clucks > 0:
@@ -240,9 +249,33 @@ func _update_alert(delta: float, searching: bool) -> void:
 	_hud.update_alert(_alert.level, seeing_hens > 0, clucks > 0, delta)
 
 
+func _update_feed_aim() -> void:
+	if Input.is_action_just_pressed("throw_feed"):
+		if _feed.held_count > 0:
+			_aiming_feed = true
+		else:
+			_hud.show_feed_notice("没有饲料可投放")
+	if not _aiming_feed:
+		return
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+		_cancel_feed_aim()
+		return
+	var destination := _feed.aim_destination(_player)
+	_feed_aim.update_preview(_player.global_position, destination, _feed.can_place(_player, destination))
+	if Input.is_action_just_released("throw_feed"):
+		_throw_feed()
+		_cancel_feed_aim()
+
+
+func _cancel_feed_aim() -> void:
+	_aiming_feed = false
+	_feed_aim.hide()
+
+
 func _throw_feed() -> void:
 	match _feed.throw_from(_player):
 		CoopFeedField.ThrowResult.PLACED:
+			_player.show_feed_toss()
 			_hud.show_feed_notice("已投放饲料")
 		CoopFeedField.ThrowResult.EMPTY:
 			_hud.show_feed_notice("没有饲料可投放")
@@ -314,7 +347,7 @@ func _interaction_hint(at_exit: bool, searching: bool) -> String:
 			return "搜寻中，松开 E 取消"
 		if _nearby_nest.status == CoopNest.Status.SEARCHABLE:
 			return "仍可搜寻，按住 E 继续"
-		return "未搜寻，按住 E 搜寻"
+		return "高收益鸡窝，按住 E 搜寻" if _nearby_nest.risky else "低收益鸡窝，按住 E 搜寻"
 	if _eggs >= egg_goal:
 		return "目标达成，返回入口撤离"
 	return "靠近鸟巢搜寻鸡蛋"
@@ -324,6 +357,7 @@ func _finish(won: bool, failure := CoopHUD.Failure.TIMEOUT) -> void:
 	if _finished:
 		return
 	_finished = true
+	_cancel_feed_aim()
 	set_physics_process(false)
 	_player.movement_locked = true
 	_player.searching = false

@@ -1,4 +1,6 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/prop_art.gd" id="1"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_crate"]
 size = Vector2(104, 76)
@@ -10,22 +12,8 @@ collision_mask = 0
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." groups=["vision_cover"]]
 shape = SubResource("RectangleShape2D_crate")
 
-[node name="Frame" type="Polygon2D" parent="."]
-color = Color(0.38, 0.23, 0.19, 1)
-polygon = PackedVector2Array(-52, -38, 52, -38, 52, 38, -52, 38)
-
-[node name="Boards" type="Polygon2D" parent="."]
-color = Color(0.57, 0.36, 0.24, 1)
-polygon = PackedVector2Array(-45, -31, 45, -31, 45, 31, -45, 31)
-
-[node name="SeamA" type="Polygon2D" parent="."]
-color = Color(0.39, 0.26, 0.2, 1)
-polygon = PackedVector2Array(-45, -11, 45, -11, 45, -9, -45, -9)
-
-[node name="SeamB" type="Polygon2D" parent="."]
-color = Color(0.39, 0.26, 0.2, 1)
-polygon = PackedVector2Array(-45, 11, 45, 11, 45, 13, -45, 13)
-
-[node name="Brace" type="Polygon2D" parent="."]
-color = Color(0.76, 0.52, 0.33, 1)
-polygon = PackedVector2Array(-45, 20, 35, -31, 45, -31, 45, -20, -35, 31, -45, 31)
+[node name="Art" type="Sprite2D" parent="."]
+script = ExtResource("1")
+prop = 1
+display_width = 144.0
+ground_offset = 38.0

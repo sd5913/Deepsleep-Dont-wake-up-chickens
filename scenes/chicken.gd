@@ -5,30 +5,29 @@ signal player_visibility_changed(detected: bool)
 
 const VISION_SEGMENTS := 32
 const CORNER_OFFSET := 0.0001
-const PATROL_CONE := Color(1.0, 0.79, 0.36, 0.23)
+const PATROL_CONE := Color(1.0, 0.87, 0.29, 0.42)
 const DETECTED_CONE := Color(1.0, 0.29, 0.23, 0.36)
-const PATROL_FEATHERS := Color(0.98, 0.91, 0.75)
-const DETECTED_FEATHERS := Color(1.0, 0.47, 0.43)
 
 @export var patrol_points: Array[Marker2D] = []
 @export var player: CoopPlayer
 @export_range(1.0, 250.0, 1.0) var patrol_speed := 64.0
-@export_range(0.0, 5.0, 0.05) var waypoint_pause := 0.65
+@export_range(0.0, 5.0, 0.05) var waypoint_pause := 1.1
 @export_range(0.0, 1.0, 0.05) var turn_back_chance := 0.3
 @export_range(0.0, 3.0, 0.05) var pause_variation := 0.3
 @export_range(0.0, 0.6, 0.05) var speed_variation := 0.2
 @export_range(30.0, 720.0, 10.0) var turn_speed_degrees := 180.0
 @export_range(16.0, 600.0, 1.0) var vision_distance := 158.0
 @export_range(10.0, 170.0, 1.0) var vision_angle := 78.0
-@export_range(0.0, 600.0, 1.0) var hearing_distance := 210.0
+@export_range(0.0, 600.0, 1.0) var hearing_distance := 130.0
 @export_range(0.1, 10.0, 0.1) var cluck_cooldown := 2.0
 @export_group("Feed")
 @export_range(20.0, 500.0, 1.0) var bait_sense_distance := 235.0
 @export_range(1.0, 250.0, 1.0) var bait_walk_speed := 100.0
-@export_range(0.5, 10.0, 0.1) var eating_seconds := 2.5
+@export_range(0.5, 10.0, 0.1) var eating_seconds := 6.0
 @export_range(0.1, 1.0, 0.05) var eating_sense_scale := 0.5
 
 var sees_player := false
+var _alarm_pending := false
 
 var _facing := Vector2.RIGHT
 var _waypoint_index := 0
@@ -39,12 +38,10 @@ var _cluck_cooldown_left := 0.0
 var _bait: CoopFeed
 var _eat_left := 0.0
 var _returning_to_patrol := false
-var _motion_phase := 0.0
 var _vision_ray := PhysicsRayQueryParameters2D.new()
 var _patrol_rng := RandomNumberGenerator.new()
 
-@onready var _body: Node2D = $Body
-@onready var _feathers: Polygon2D = $Body/Feathers
+@onready var _body: CoopCharacterArt = $Body
 @onready var _vision: Polygon2D = $Vision
 @onready var _notice: Label = $Notice
 @onready var _pecking: Label = $Pecking
@@ -57,20 +54,16 @@ func set_patrol_seed(seed_value: int) -> void:
 
 func _physics_process(delta: float) -> void:
 	var previous_position := position
-	_motion_phase += delta
 	_cluck_cooldown_left = maxf(_cluck_cooldown_left - delta, 0.0)
 	if not _follow_bait(delta):
 		if _returning_to_patrol:
 			_return_to_patrol(delta)
 		else:
 			_patrol(delta)
-	_body.rotation = _facing.angle()
 	_pecking.visible = _eat_left > 0.0
-	if _pecking.visible:
-		_body.position = _facing * (sin(_motion_phase * 23.0) * 2.2)
-	else:
-		_body.position.y = sin(_motion_phase * 18.0) * 1.5 if position != previous_position else 0.0
-		_body.position.x = 0.0
+	_pecking.text = "%ds" % ceili(_eat_left)
+	var action: StringName = &"eat" if _eat_left > 0.0 else (&"alarm" if _cluck_cooldown_left > cluck_cooldown - 0.4 else &"idle")
+	_body.update_pose(_facing, position.distance_squared_to(previous_position) > 0.001, action, delta)
 
 	var space := get_world_2d().direct_space_state
 	var half_angle := deg_to_rad(vision_angle * 0.5)
@@ -78,17 +71,40 @@ func _physics_process(delta: float) -> void:
 	_vision_ray.collision_mask = collision_mask
 	_vision_ray.from = global_position
 	_update_vision(space, half_angle, sight_range)
-	_set_player_visible(_can_see_player(space, half_angle, sight_range))
+	_set_player_visible(_eat_left <= 0.0 and _can_see_player(space, half_angle, sight_range))
+	if sees_player:
+		_request_alarm()
+	_notice.visible = _eat_left <= 0.0 and (sees_player or _cluck_cooldown_left > cluck_cooldown - 0.4)
+	_vision.color = Color(0.3, 0.85, 0.8, 0.25) if _eat_left > 0.0 else (DETECTED_CONE if sees_player else PATROL_CONE)
 
 
 func hear_search_noise(origin: Vector2) -> bool:
-	if _cluck_cooldown_left > 0.0:
+	if _eat_left > 0.0:
 		return false
 	var hearing_range := hearing_distance * _sense_scale()
 	if global_position.distance_squared_to(origin) > hearing_range * hearing_range:
 		return false
+	# Cover blocks nearby search sounds as well as the visual line of sight.
+	var ray := PhysicsRayQueryParameters2D.create(global_position, origin, collision_mask)
+	if not get_world_2d().direct_space_state.intersect_ray(ray).is_empty():
+		return false
+	return _request_alarm()
+
+
+func _request_alarm() -> bool:
+	if is_instance_valid(player) and player.invulnerable:
+		return false
+	if _cluck_cooldown_left > 0.0:
+		return false
+	_alarm_pending = true
 	_cluck_cooldown_left = cluck_cooldown
 	return true
+
+
+func take_alarm() -> bool:
+	var pending := _alarm_pending
+	_alarm_pending = false
+	return pending
 
 
 func _sense_scale() -> float:
@@ -193,7 +209,7 @@ func _turn_toward(offset: Vector2, delta: float) -> void:
 
 
 func _can_see_player(space: PhysicsDirectSpaceState2D, half_angle: float, sight_range: float) -> bool:
-	if not is_instance_valid(player):
+	if not is_instance_valid(player) or player.invulnerable:
 		return false
 	var offset := player.global_position - global_position
 	if offset.length_squared() > sight_range * sight_range:
@@ -250,7 +266,4 @@ func _set_player_visible(detected: bool) -> void:
 	if detected == sees_player:
 		return
 	sees_player = detected
-	_vision.color = DETECTED_CONE if detected else PATROL_CONE
-	_feathers.color = DETECTED_FEATHERS if detected else PATROL_FEATHERS
-	_notice.visible = detected
 	player_visibility_changed.emit(detected)

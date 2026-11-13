@@ -25,18 +25,17 @@ var state := State.SEARCHING
 
 var _search_index := -1
 var _search_elapsed := 0.0
-var _motion_phase := 0.0
+var _facing := Vector2.DOWN
 var _sight_ray := PhysicsRayQueryParameters2D.new()
 
-@onready var _body: Node2D = $Body
+@onready var _body: CoopCharacterArt = $Body
 
 
 func _physics_process(delta: float) -> void:
-	_motion_phase += delta
-	_body.position.y = 0.0
+	var previous_position := position
 	var distance := global_position.distance_to(player.global_position)
 	# The same clear ray is required for pursuit and capture.
-	sees_player = distance <= vision_distance and _has_clear_sight(player.global_position)
+	sees_player = not player.invulnerable and distance <= vision_distance and _has_clear_sight(player.global_position)
 	if sees_player:
 		last_known_position = player.global_position
 		_search_index = -1
@@ -54,6 +53,8 @@ func _physics_process(delta: float) -> void:
 	else:
 		state = State.SEARCHING
 		_search(delta)
+
+	_body.update_pose(_facing, position.distance_squared_to(previous_position) > 0.001, &"idle", delta)
 
 
 func _has_clear_sight(target: Vector2) -> bool:
@@ -85,7 +86,6 @@ func _walk_to(target: Vector2, speed: float, delta: float) -> bool:
 		return false
 	if offset.is_zero_approx():
 		return true
-	_body.rotation = offset.angle()
-	_body.position.y = sin(_motion_phase * 17.0) * 1.9
+	_facing = offset.normalized()
 	move_and_collide(offset.limit_length(speed * delta))
 	return false

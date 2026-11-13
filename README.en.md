@@ -1,30 +1,31 @@
-# Night Coop
+# Night Coop · Egg Rush
 
 [简体中文](README.md)
 
-## About the game
+A pixel-art browser collection game. Gather as many eggs as possible in **60 seconds**, spend earned coins on upgrades, and unlock bigger, denser stages.
 
-Night Coop is a single-player, top-down stealth game. Sneak into a chicken coop at night and search nests while the hens look away. You have **120 seconds to collect at least six eggs and escape through the green south exit**. One more search might get you the last egg, or give the farmer time to find you.
+- **Manual collection:** left-click reachable eggs or repeatedly left-click an open straw nest. Ground eggs are slightly larger, and clicks within 24 screen pixels select a nearby eligible egg. Assistance obeys player reach and cover; proximity never auto-collects. WASD/arrows move; Esc pauses. Audio is currently disabled.
+- **Fair starts and patrols:** the first three seconds protect the player from hen sight, clucks, alert gains and capture. Hens start in all four quadrants and repeatedly shuffle global destinations, with navigation around cover and recovery from blocked routes.
+- **Continuous supply:** ground eggs respawn in random batches. Nests show their actual 2–6 egg stock and refill after being emptied.
+- **Chains:** collect within 2.2 seconds to keep a chain. Every 12 pickups increases the multiplier, up to four times. A broken chain never deducts earned points. Timeout settles the run, without a fixed target or exit requirement.
+- **Four stages:** finish a run to unlock the next. World dimensions scale by 1, 1.2, 1.4 and 1.6; cover, nests and ground eggs become denser. The camera zooms uniformly while eggs retain a minimum clickable size.
+- **Golden hens:** stages 3–4 introduce one halfway through; stage 4 adds another later. Golden eggs have a base value of five points instead of one.
+- **Persistent growth:** five points earn one coin. Upgrade gather radius, bonus egg chance and nest refill, each up to five levels. High scores are independent from currency. Progress is stored in the current browser, without cross-device synchronization.
 
-- **Search for eggs.** Each nest hides one to three eggs. Its marker tells you whether it has been searched or emptied. Hold **E** near a nest to take one egg every two seconds. You stay still while searching, and releasing **E** cancels the current search.
-- **Hide and distract.** Three hens patrol the coop, and their vision cones turn with them. Walls and crates block sight, but hens can still hear you search. Tap **E** to pick up feed, then press **Q** to throw it ahead and draw nearby hens away.
-- **Manage alert and escape.** Alert rises when a hen sees you or clucks after hearing a search. At **60** alert, the farmer enters from the north. If he loses sight of you, he checks your last known position. Hide and stop searching to let alert fall. Once you have enough eggs, tap **E** at the south exit. Getting caught or running out of time ends the round.
-- **Seeded layouts and bilingual UI.** The round seed drives the layout, nest inventories, and patrol variation. You can switch between Simplified Chinese and English on the start, pause, and results screens.
+## Run and check
 
-## Project architecture
+Use **Godot 4.5.1 Standard** with matching export templates, Compatibility rendering and a 960×540 design viewport. Import `project.godot` and press F5. The entry scene is `scenes/arcade/game.tscn`; the original stealth scene remains at `game.tscn` for reference.
 
-**Godot 4.5.1 Standard (matching export templates) · GDScript · Compatibility renderer · 960×540**
+```bash
+godot --headless --path . --import
+godot --headless --path . --fixed-fps 60 --script tests/arcade_flow.gd
+godot --headless --path . --export-release Web build/web/index.html
+```
 
-[project.godot](project.godot) holds the project settings and points to [game.tscn](game.tscn). The main scene brings the map, actors, and interface together. Each module handles its own rules.
+Serve Web exports over HTTP(S). Keep build output out of Git. `.codex/setup.sh` installs matching editor/templates for the cloud environment. Generated character/environment art follows the supplied references; font licenses are in `assets/fonts/`.
 
-| Module | Entry point and responsibilities |
-| --- | --- |
-| Round flow | [game.gd](game.gd) manages the round seed, timer, searching, farmer arrival, outcomes, and restarts. |
-| Layout and navigation | [coop_layout.gd](scenes/coop_layout.gd) generates and validates layouts and builds the navigation mesh. If the generator runs out of attempts, it uses a validated fixed map. [coop_navigation.gd](scenes/coop_navigation.gd) routes the farmer and hens following bait around obstacles. |
-| Actors and alert | The [player](scenes/player.gd) handles movement and facing. [Hens](scenes/chicken.gd) handle patrols, perception, and feeding. The [farmer](scenes/farmer.gd) chases, searches, and retreats. [alert.gd](scenes/alert.gd) tracks alert gain and decay. |
-| Nests and feed | [nest.gd](scenes/nest.gd) tracks each nest’s inventory and state. [feed_field.gd](scenes/feed_field.gd) handles feed pickups, inventory, and throw validation. |
-| Interface and feedback | [round_hud.tscn](scenes/round_hud.tscn) defines the UI layout, and [round_hud.gd](scenes/round_hud.gd) updates status and switches languages. [en.po](assets/i18n/en.po) contains the English translations, and [round_audio.tscn](scenes/round_audio.tscn) binds the audio cues. |
+Hens retain the original occluded sight cones and obstacle-aware patrols, now at speed 82. Being seen raises alert; at 60 the farmer arrives from the north. Capture settles the current score early without unlocking the next stage. Base pickup radius is 70 world units, plus 4 per gather upgrade.
 
-`scenes/` contains editable scenes and behavior scripts. `assets/` contains original artwork and audio, the UI font, and translations. The UI font is a subset of Noto Sans SC under the [SIL Open Font License](assets/fonts/OFL.txt).
+Pacing pass: stage one has four patrolling hens, followed by one additional ordinary hen per stage. The halved pickup diameter uses a soft, hollow pale-yellow halo instead of dashes. Reachable hovered targets highlight; up/down movement uses four-frame front/back runs, including during pickups. The final ten seconds receive a visual cue. Golden hens arrive at 30 seconds, with the second stage-four hen at 45 seconds.
 
-See the [project file guide in Chinese](PROJECT_GUIDE.md) for a file-by-file breakdown.
+Combo feedback follows the player rather than occupying the top HUD. Every fifth pickup triggers a short scaling pop, golden sparks and encouragement. Future scattered powerups are designed in [ITEM_DESIGN.md](ITEM_DESIGN.md); they are not implemented yet.

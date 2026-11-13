@@ -1,62 +1,72 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scenes/round_hud.gd" id="1"]
 [ext_resource type="FontFile" path="res://assets/fonts/CoopUI.ttf" id="2"]
+
+[ext_resource type="Script" path="res://scenes/hud_frames.gd" id="3"]
 
 [sub_resource type="Theme" id="Theme_round"]
 default_font = ExtResource("2")
 default_font_size = 17
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_progress"]
-bg_color = Color(0.45, 0.8, 0.52, 1)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_left = 4
-corner_radius_bottom_right = 4
+bg_color = Color(1, 0.76, 0.25, 1)
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_left = 0
+corner_radius_bottom_right = 0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_alert_background"]
-bg_color = Color(0.19, 0.24, 0.32, 1)
-corner_radius_top_left = 3
-corner_radius_top_right = 3
-corner_radius_bottom_left = 3
-corner_radius_bottom_right = 3
+bg_color = Color(0.04, 0.06, 0.12, 1)
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_left = 0
+corner_radius_bottom_right = 0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_search_background"]
+bg_color = Color(0.04, 0.06, 0.12, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.87, 0.48, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_alert_fill"]
-bg_color = Color(1, 0.46, 0.33, 1)
-corner_radius_top_left = 3
-corner_radius_top_right = 3
-corner_radius_bottom_left = 3
-corner_radius_bottom_right = 3
+bg_color = Color(0.96, 0.72, 0.21, 1)
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_left = 0
+corner_radius_bottom_right = 0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_result"]
 content_margin_left = 30.0
 content_margin_top = 25.0
 content_margin_right = 30.0
 content_margin_bottom = 25.0
-bg_color = Color(0.07, 0.12, 0.18, 1)
+bg_color = Color(0.035, 0.055, 0.11, 1)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
-border_color = Color(0.38, 0.55, 0.58, 1)
-corner_radius_top_left = 10
-corner_radius_top_right = 10
-corner_radius_bottom_left = 10
-corner_radius_bottom_right = 10
+border_color = Color(0.9, 0.72, 0.35, 1)
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_left = 0
+corner_radius_bottom_right = 0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_primary"]
-bg_color = Color(0.17, 0.38, 0.31, 1)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_left = 6
-corner_radius_bottom_right = 6
+bg_color = Color(0.38, 0.25, 0.1, 1)
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_left = 0
+corner_radius_bottom_right = 0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_primary_hover"]
-bg_color = Color(0.24, 0.49, 0.39, 1)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_left = 6
-corner_radius_bottom_right = 6
+bg_color = Color(0.56, 0.37, 0.13, 1)
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_left = 0
+corner_radius_bottom_right = 0
 
 [node name="HUD" type="CanvasLayer"]
 process_mode = 3
@@ -72,13 +82,19 @@ grow_vertical = 2
 mouse_filter = 2
 theme = SubResource("Theme_round")
 
+[node name="Frames" type="Control" parent="Screen"]
+mouse_filter = 2
+script = ExtResource("3")
+
 [node name="Header" type="ColorRect" parent="Screen"]
+visible = false
 offset_right = 960.0
 offset_bottom = 49.0
 mouse_filter = 2
 color = Color(0.04, 0.08, 0.13, 0.93)
 
 [node name="Footer" type="ColorRect" parent="Screen"]
+visible = false
 offset_top = 502.0
 offset_right = 960.0
 offset_bottom = 540.0
@@ -86,46 +102,49 @@ mouse_filter = 2
 color = Color(0.04, 0.08, 0.13, 0.93)
 
 [node name="Title" type="Label" parent="Screen"]
-offset_left = 24.0
-offset_top = 9.0
-offset_right = 360.0
-offset_bottom = 43.0
+offset_left = 790.0
+offset_top = 500.0
+offset_right = 937.0
+offset_bottom = 529.0
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.87, 0.92, 0.99, 1)
-theme_override_font_sizes/font_size = 23
+theme_override_colors/font_color = Color(1, 0.86, 0.5, 1)
 text = "夜访鸡舍"
 vertical_alignment = 1
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
 
 [node name="EggCount" type="Label" parent="Screen"]
 unique_name_in_owner = true
-offset_left = 588.0
-offset_top = 9.0
-offset_right = 696.0
-offset_bottom = 43.0
+offset_left = 49.0
+offset_top = 11.0
+offset_right = 182.0
+offset_bottom = 42.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.9, 0.62, 1)
 text = "鸡蛋 0 / 6"
-horizontal_alignment = 2
 vertical_alignment = 1
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
 
 [node name="AlertValue" type="Label" parent="Screen"]
 unique_name_in_owner = true
-offset_left = 162.0
-offset_top = 4.0
-offset_right = 355.0
-offset_bottom = 30.0
+offset_left = 390.0
+offset_top = 36.0
+offset_right = 570.0
+offset_bottom = 57.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.83, 0.74, 1)
-theme_override_font_sizes/font_size = 16
 text = "警戒 0 / 100"
 vertical_alignment = 1
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
 
 [node name="AlertBar" type="ProgressBar" parent="Screen"]
 unique_name_in_owner = true
-offset_left = 162.0
-offset_top = 34.0
-offset_right = 355.0
-offset_bottom = 42.0
+offset_left = 386.0
+offset_top = 17.0
+offset_right = 574.0
+offset_bottom = 31.0
 mouse_filter = 2
 theme_override_styles/background = SubResource("StyleBoxFlat_alert_background")
 theme_override_styles/fill = SubResource("StyleBoxFlat_alert_fill")
@@ -135,10 +154,10 @@ show_percentage = false
 [node name="SightNotice" type="Label" parent="Screen"]
 unique_name_in_owner = true
 visible = false
-offset_left = 379.0
-offset_top = 2.0
-offset_right = 571.0
-offset_bottom = 24.0
+offset_left = 386.0
+offset_top = 57.0
+offset_right = 574.0
+offset_bottom = 76.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.54, 0.48, 1)
 theme_override_font_sizes/font_size = 15
@@ -148,56 +167,59 @@ vertical_alignment = 1
 [node name="CluckNotice" type="Label" parent="Screen"]
 unique_name_in_owner = true
 visible = false
-offset_left = 379.0
-offset_top = 24.0
-offset_right = 571.0
-offset_bottom = 46.0
+offset_left = 386.0
+offset_top = 77.0
+offset_right = 574.0
+offset_bottom = 96.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.82, 0.47, 1)
 theme_override_font_sizes/font_size = 15
-text = "搜寻声引发鸣叫"
+text = "母鸡报警"
 vertical_alignment = 1
 
 [node name="Clock" type="Label" parent="Screen"]
 unique_name_in_owner = true
-offset_left = 805.0
-offset_top = 9.0
-offset_right = 936.0
-offset_bottom = 43.0
+offset_left = 830.0
+offset_top = 11.0
+offset_right = 938.0
+offset_bottom = 42.0
 mouse_filter = 2
 text = "剩余时间 2:00"
-horizontal_alignment = 2
 vertical_alignment = 1
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
 
 [node name="FeedCount" type="Label" parent="Screen"]
 unique_name_in_owner = true
-offset_left = 710.0
-offset_top = 9.0
-offset_right = 795.0
-offset_bottom = 43.0
+offset_left = 24.0
+offset_top = 499.0
+offset_right = 162.0
+offset_bottom = 528.0
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.74, 0.94, 0.66, 1)
+theme_override_colors/font_color = Color(1, 0.9, 0.62, 1)
 text = "饲料 0"
-horizontal_alignment = 1
 vertical_alignment = 1
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
 
 [node name="MovementHint" type="Label" parent="Screen"]
-offset_left = 24.0
-offset_top = 503.0
-offset_right = 260.0
-offset_bottom = 536.0
+offset_left = 233.0
+offset_top = 499.0
+offset_right = 455.0
+offset_bottom = 528.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.78, 0.86, 0.96, 1)
 text = "移动  WASD / 方向键"
 vertical_alignment = 1
+theme_override_font_sizes/font_size = 15
 
 [node name="FarmerNotice" type="Label" parent="Screen"]
 unique_name_in_owner = true
 visible = false
 offset_left = 264.0
-offset_top = 50.0
+offset_top = 83.0
 offset_right = 696.0
-offset_bottom = 75.0
+offset_bottom = 108.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.88, 0.67, 1)
 theme_override_colors/font_outline_color = Color(0.13, 0.07, 0.09, 1)
@@ -209,22 +231,23 @@ vertical_alignment = 1
 
 [node name="InteractionHint" type="Label" parent="Screen"]
 unique_name_in_owner = true
-offset_left = 282.0
-offset_top = 503.0
-offset_right = 716.0
-offset_bottom = 536.0
+offset_left = 465.0
+offset_top = 499.0
+offset_right = 728.0
+offset_bottom = 528.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.9, 0.62, 1)
 text = "靠近鸟巢搜寻鸡蛋"
 vertical_alignment = 1
+theme_override_font_sizes/font_size = 15
 
 [node name="FeedNotice" type="Label" parent="Screen"]
 unique_name_in_owner = true
 visible = false
 offset_left = 264.0
-offset_top = 79.0
+offset_top = 110.0
 offset_right = 696.0
-offset_bottom = 108.0
+offset_bottom = 135.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.84, 1, 0.74, 1)
 theme_override_colors/font_outline_color = Color(0.13, 0.07, 0.09, 1)
@@ -236,11 +259,12 @@ vertical_alignment = 1
 [node name="SearchProgress" type="ProgressBar" parent="Screen"]
 unique_name_in_owner = true
 visible = false
-offset_left = 707.0
-offset_top = 513.0
-offset_right = 828.0
-offset_bottom = 527.0
+offset_left = 440.0
+offset_top = 350.0
+offset_right = 506.0
+offset_bottom = 360.0
 mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_search_background")
 theme_override_styles/fill = SubResource("StyleBoxFlat_progress")
 max_value = 1.0
 step = 0.0
@@ -249,10 +273,10 @@ show_percentage = false
 [node name="PauseButton" type="Button" parent="Screen"]
 unique_name_in_owner = true
 visible = false
-offset_left = 846.0
-offset_top = 504.0
-offset_right = 936.0
-offset_bottom = 537.0
+offset_left = 850.0
+offset_top = 47.0
+offset_right = 944.0
+offset_bottom = 70.0
 focus_mode = 0
 theme_override_font_sizes/font_size = 15
 text = "暂停 Esc"
@@ -304,7 +328,7 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_colors/font_color = Color(0.81, 0.87, 0.92, 1)
 theme_override_font_sizes/font_size = 17
-text = "在时限内收集足够鸡蛋，从南侧入口撤离。\n避开母鸡视野，利用木箱和饲料争取时间。"
+text = "在时限内收集足够鸡蛋，从南侧入口撤离。\n看见玩家就报警，躲在木箱后可避开视线。\n青色鸡窝收益低，橙色鸡窝收益高。"
 horizontal_alignment = 1
 
 [node name="Separator" type="HSeparator" parent="Screen/Menu/Center/Panel/Content"]
@@ -325,7 +349,7 @@ horizontal_alignment = 2
 [node name="Actions" type="Label" parent="Screen/Menu/Center/Panel/Content/Controls"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "移动\n按住搜寻，轻按拾取或撤离\n投放饲料\n暂停或继续"
+text = "移动\n按住搜寻，轻按拾取或撤离\n按住瞄准，松开投放\n暂停或继续"
 
 [node name="Buttons" type="HBoxContainer" parent="Screen/Menu/Center/Panel/Content"]
 layout_mode = 2

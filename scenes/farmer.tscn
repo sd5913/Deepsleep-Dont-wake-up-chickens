@@ -1,13 +1,15 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scenes/farmer.gd" id="1"]
 [ext_resource type="Texture2D" path="res://assets/art/lamplight.svg" id="2"]
+
+[ext_resource type="Script" path="res://scenes/character_art.gd" id="3"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_farmer"]
 radius = 13.0
 
 [node name="Farmer" type="CharacterBody2D"]
-z_index = 2
+z_index = 0
 collision_layer = 0
 collision_mask = 2
 motion_mode = 1
@@ -17,26 +19,18 @@ script = ExtResource("1")
 shape = SubResource("CircleShape2D_farmer")
 
 [node name="Body" type="Node2D" parent="."]
+script = ExtResource("3")
+character = 1
+sprite_height = 66.0
 
 [node name="LanternGlow" type="Sprite2D" parent="Body"]
-position = Vector2(17, 10)
+position = Vector2(19, -12)
 z_index = -1
-scale = Vector2(0.8, 0.8)
+scale = Vector2(0.65, 0.65)
 texture = ExtResource("2")
-self_modulate = Color(1, 0.67, 0.31, 0.74)
+self_modulate = Color(1, 0.67, 0.31, 0.60)
 
-[node name="Coat" type="Polygon2D" parent="Body"]
-color = Color(0.62, 0.2, 0.16, 1)
-polygon = PackedVector2Array(-12, -9, -6, -14, 7, -14, 13, -7, 13, 7, 7, 14, -6, 14, -12, 9)
-
-[node name="HatBrim" type="Polygon2D" parent="Body"]
-color = Color(0.93, 0.72, 0.4, 1)
-polygon = PackedVector2Array(-8, -11, 7, -11, 14, -5, 14, 5, 7, 11, -8, 11, -12, 5, -12, -5)
-
-[node name="Hat" type="Polygon2D" parent="Body"]
-color = Color(0.58, 0.38, 0.23, 1)
-polygon = PackedVector2Array(-6, -6, 5, -6, 9, -2, 9, 2, 5, 6, -6, 6, -9, 2, -9, -2)
-
-[node name="Lantern" type="Polygon2D" parent="Body"]
-color = Color(1, 0.91, 0.53, 1)
-polygon = PackedVector2Array(13, 6, 20, 7, 20, 13, 13, 14)
+[node name="Shadow" type="Polygon2D" parent="."]
+z_index = -1
+color = Color(0.035, 0.075, 0.11, 0.65)
+polygon = PackedVector2Array(-17, 0, -10, -5, 10, -5, 17, 0, 10, 5, -10, 5)

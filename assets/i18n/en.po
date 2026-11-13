@@ -124,8 +124,8 @@ msgstr "Pecking"
 msgid "被母鸡看见"
 msgstr "Seen by a hen"
 
-msgid "搜寻声引发鸣叫"
-msgstr "Hen heard the search"
+msgid "母鸡报警"
+msgstr "Hen raised the alarm"
 
 msgid "农夫即将从北侧入场"
 msgstr "Farmer incoming from the north"
@@ -162,3 +162,24 @@ msgstr "Eggs %d / %d    Time %s"
 
 msgid "鸡蛋 6 / 6    用时 1:12"
 msgstr "Eggs 6 / 6    Time 1:12"
+
+msgid "按住 Q 瞄准，松开投放；右键取消"
+msgstr "Hold Q to aim, release to throw; right-click cancels"
+
+msgid "高收益鸡窝，按住 E 搜寻"
+msgstr "Rich nest: hold E to search"
+
+msgid "低收益鸡窝，按住 E 搜寻"
+msgstr "Small nest: hold E to search"
+
+msgid "移动\n按住搜寻，轻按拾取或撤离\n按住瞄准，松开投放\n暂停或继续"
+msgstr "Move\nHold to search. Tap to pick up or exit.\nHold to aim; release to throw\nPause or resume"
+
+msgid "按住搜寻，轻按拾取或撤离\n按住瞄准，松开投放\n暂停或继续"
+msgstr "Hold to search. Tap to pick up or exit.\nHold to aim; release to throw\nPause or resume"
+
+msgid "在时限内收集足够鸡蛋，从南侧入口撤离。\n看见玩家就报警，躲在木箱后可避开视线。\n青色鸡窝收益低，橙色鸡窝收益高。"
+msgstr "Gather enough eggs and escape through the south exit.\nHens alarm on sight. Hide behind crates to break sight.\nTeal nests are small; amber nests are rich."
+
+msgid "松开 Q 投放，右键取消"
+msgstr "Release Q to throw; right-click cancels"

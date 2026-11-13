@@ -5,10 +5,11 @@ extends CharacterBody2D
 
 var movement_locked := false
 var searching := false
+var invulnerable := false
 var _facing := Vector2.UP
-var _motion_phase := 0.0
+var _toss_left := 0.0
 
-@onready var _art: Node2D = $Art
+@onready var _art: CoopCharacterArt = $Art
 @onready var _search_glow: Sprite2D = $SearchGlow
 
 
@@ -18,19 +19,23 @@ func aim_direction() -> Vector2:
 
 
 func _physics_process(delta: float) -> void:
-	_motion_phase += delta
+	_art.modulate = Color(0.72,0.94,1.0) if invulnerable else Color.WHITE
 	_search_glow.visible = searching
+	_toss_left = maxf(0.0, _toss_left - delta)
 	if movement_locked:
 		velocity = Vector2.ZERO
-		_art.position.y = sin(_motion_phase * 18.0) * 1.4 if searching else 0.0
+		_art.update_pose(_facing, false, &"search" if searching else &"idle", delta)
 		return
 	var direction := _move_input()
 	if not direction.is_zero_approx():
 		_facing = direction.normalized()
-		_art.rotation = Vector2.UP.angle_to(_facing)
 	velocity = direction * move_speed
 	move_and_slide()
-	_art.position.y = sin(_motion_phase * 22.0) * 1.8 if get_real_velocity().length_squared() > 1.0 else 0.0
+	_art.update_pose(_facing, get_real_velocity().length_squared() > 1.0, &"toss" if _toss_left > 0.0 else &"idle", delta)
+
+
+func show_feed_toss() -> void:
+	_toss_left = 0.3
 
 
 func _move_input() -> Vector2:

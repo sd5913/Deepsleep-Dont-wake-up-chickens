@@ -1,7 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scenes/chicken.gd" id="1"]
 [ext_resource type="FontFile" path="res://assets/fonts/CoopUI.ttf" id="2"]
+
+[ext_resource type="Script" path="res://scenes/character_art.gd" id="3"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_chicken"]
 radius = 13.0
@@ -20,51 +22,30 @@ color = Color(1, 0.79, 0.36, 0.23)
 
 [node name="Shadow" type="Polygon2D" parent="."]
 position = Vector2(0, 5)
-z_index = 1
+z_index = 0
 color = Color(0.06, 0.09, 0.13, 0.52)
 polygon = PackedVector2Array(-14, 0, -9, -5, 9, -5, 14, 0, 9, 6, -9, 6)
 
 [node name="Body" type="Node2D" parent="."]
-z_index = 1
-
-[node name="Tail" type="Polygon2D" parent="Body"]
-color = Color(0.7, 0.58, 0.43, 1)
-polygon = PackedVector2Array(-9, -7, -18, -10, -15, 1, -17, 9, -7, 6)
-
-[node name="Beak" type="Polygon2D" parent="Body"]
-color = Color(1, 0.64, 0.25, 1)
-polygon = PackedVector2Array(11, -4, 19, 0, 11, 4)
-
-[node name="Feathers" type="Polygon2D" parent="Body"]
-color = Color(0.98, 0.91, 0.75, 1)
-polygon = PackedVector2Array(-13, -5, -6, -11, 4, -11, 12, -7, 14, 0, 12, 7, 4, 11, -6, 11, -13, 5)
-
-[node name="Wing" type="Polygon2D" parent="Body"]
-color = Color(0.77, 0.65, 0.5, 1)
-polygon = PackedVector2Array(-10, -4, -3, -5, 4, 0, -3, 5, -10, 4)
-
-[node name="Comb" type="Polygon2D" parent="Body"]
-color = Color(0.76, 0.24, 0.25, 1)
-polygon = PackedVector2Array(4, -7, 6, -3, 4, 0, 6, 3, 4, 7, 9, 4, 10, 0, 9, -4)
-
-[node name="Eye" type="Polygon2D" parent="Body"]
-color = Color(0.19, 0.13, 0.14, 1)
-polygon = PackedVector2Array(10, -6, 12, -5, 11, -3, 9, -4)
+z_index = 0
+script = ExtResource("3")
+character = 2
+sprite_height = 36.0
 
 [node name="Notice" type="Label" parent="."]
 visible = false
 z_index = 3
 offset_left = -68.0
-offset_top = -49.0
+offset_top = -60.0
 offset_right = 68.0
-offset_bottom = -20.0
+offset_bottom = -35.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.72, 0.62, 1)
 theme_override_colors/font_outline_color = Color(0.13, 0.07, 0.09, 1)
 theme_override_constants/outline_size = 5
 theme_override_fonts/font = ExtResource("2")
 theme_override_font_sizes/font_size = 16
-text = "发现玩家"
+text = "!"
 horizontal_alignment = 1
 vertical_alignment = 1
 

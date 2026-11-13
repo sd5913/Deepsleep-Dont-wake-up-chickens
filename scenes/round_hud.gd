@@ -16,6 +16,8 @@ static var _locale := "zh_CN"
 var _cluck_notice_left := 0.0
 var _feed_notice_left := 0.0
 var _formatted_text: Dictionary[Label, Array] = {}
+var _search_key: Label
+var _pixel_font := preload("res://assets/fonts/PressStart2P-Regular.ttf")
 
 @onready var _egg_count: Label = %EggCount
 @onready var _clock: Label = %Clock
@@ -43,6 +45,16 @@ var _formatted_text: Dictionary[Label, Array] = {}
 
 
 func _ready() -> void:
+	_search_key = Label.new()
+	_search_key.text = "E"
+	_search_key.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_search_key.add_theme_font_override("font", _pixel_font)
+	_search_key.add_theme_font_size_override("font_size", 13)
+	_search_key.add_theme_color_override("font_color", Color("ffe7a0"))
+	_search_key.add_theme_color_override("font_outline_color", Color("0b1225"))
+	_search_key.add_theme_constant_override("outline_size", 5)
+	_search_key.hide()
+	$Screen.add_child(_search_key)
 	_apply_language()
 
 
@@ -95,7 +107,7 @@ func hide_menu() -> void:
 
 func update_status(eggs: int, goal: int, seconds_left: int) -> void:
 	_set_formatted_text(_egg_count, "鸡蛋 %d / %d", [eggs, goal])
-	_set_formatted_text(_clock, "剩余时间 %s", [_format_time(seconds_left)])
+	_set_formatted_text(_clock, "%s", [_format_time(seconds_left)])
 
 
 func update_interaction(hint: String, progress: float, searching: bool, missing_eggs := 0) -> void:
@@ -106,6 +118,11 @@ func update_interaction(hint: String, progress: float, searching: bool, missing_
 		_hint.text = hint
 	_progress.value = progress
 	_progress.visible = searching
+	_search_key.visible = searching
+	if searching:
+		var player := get_parent().get_node("Player") as Node2D
+		_progress.position = (player.global_position + Vector2(-33, -81)).clamp(Vector2(8, 76), Vector2(862, 449))
+		_search_key.position = _progress.position + Vector2(74, -4)
 
 
 func update_alert(level: float, seen: bool, clucked: bool, delta: float) -> void:
@@ -171,6 +188,17 @@ func _on_language_pressed() -> void:
 
 func _apply_language() -> void:
 	TranslationServer.set_locale(_locale)
+	for node_name in ["Title", "EggCount", "Clock", "FeedCount", "AlertValue", "MovementHint"]:
+		var label := $Screen.get_node(node_name) as Label
+		if _locale == "en":
+			label.add_theme_font_override("font", _pixel_font)
+			label.add_theme_font_size_override("font_size", 12 if node_name == "Title" else (9 if node_name == "MovementHint" or node_name == "AlertValue" else 11))
+		else:
+			label.remove_theme_font_override("font")
+			label.add_theme_font_size_override("font_size", 18 if node_name == "Title" else 15)
+		label.clip_text = true
+	_hint.clip_text = true
+	_hint.add_theme_font_size_override("font_size", 13 if _locale == "en" else 15)
 	var button_text := "中文" if _locale == "en" else "English"
 	_menu_language.text = button_text
 	_result_language.text = button_text

@@ -1,73 +1,63 @@
-# 夜访鸡舍项目文件说明
+# 项目文件说明
 
-用 **Godot 4.5.1 Standard** 导入 [project.godot](project.godot)，按 **F5** 会打开
-[game.tscn](game.tscn)，由 [game.gd](game.gd) 组织整局玩法。可以先打开
-`game.tscn` 看节点树，再按下表找到负责对应功能的场景和脚本。玩法与架构概览见
-[中文版 README](README.md)或[英文版 README](README.en.md)。
+当前游戏为“捡蛋冲分版”，入口 `project.godot` → `scenes/arcade/game.tscn`，使用 Godot 4.5.1 Standard。
 
-## 根目录文件
-
-| 文件 | 用途 |
+| 文件 | 职责 |
 | --- | --- |
-| [project.godot](project.godot) | 项目总配置。指定主场景、960×540 设计尺寸、按键映射、碰撞层、翻译资源和 Compatibility 渲染器。改键位从这里入手。 |
-| [game.tscn](game.tscn) | 主场景和编辑器里的固定地图。包含地面、外围墙、木箱、鸟巢、母鸡和巡逻点、饲料、玩家、撤离点与农夫入口，并挂载 HUD 和音频。 |
-| [game.gd](game.gd) | 整局调度。生成种子和初始库存，管理倒计时和搜寻，把母鸡的发现与鸣叫传给警戒系统，触发农夫入场，并处理暂停、胜负和重开。鸡蛋目标、每局时间、搜寻时长和农夫入场阈值可在 `Game` 检查器里调整。 |
-| [export_presets.cfg](export_presets.cfg) | Web、Linux、Windows 的导出预设。 |
-| [README.md](README.md) · [README.en.md](README.en.md) | 中文和英文的玩法介绍与项目架构概览。 |
-| [AGENTS.md](AGENTS.md) | 给代码助手的项目约定，包括 Godot 版本、导入与导出检查、构建产物和凭据管理。 |
-| [.gitignore](.gitignore) | Git 忽略规则。目前排除 `.godot/`、`build/` 和 `.env`。 |
+| `scenes/arcade/game.gd` | 60 秒对局、左键选取、连捡计分、随机补蛋、黄金鸡事件、暂停和结算；连接菜单与商店。 |
+| `scenes/arcade/world.gd` | 四关真实场地尺寸、边界和障碍碰撞、随机鸡窝／蛋的有效落点；铺设像素地面和鸡舍背景。 |
+| `scenes/arcade/egg.gd` | 普通蛋、金蛋的像素图形和轻微浮动，不含接近自动拾取逻辑。 |
+| `scenes/arcade/nest.gd` | 每次点击立即取蛋，直接绘制当前库存，取空后随机补货。 |
+| `scenes/arcade/hen.gd` | 继承原 `CoopChicken`，保留扇形视野、遮挡、绕障巡逻和报警，并添加产蛋与黄金鸡显示。 |
+| `scenes/arcade/effect.gd` | 鸡蛋飞入背包、跳分反馈。分数在点击时立即结算，不等待飞行动画。 |
+| `scenes/arcade/profile.gd` | 钱币、四关最高分、解锁关卡和三项五级升级；校验损坏存档与购买条件。网页用 localStorage，桌面用 user:// 文件。 |
+| `scenes/arcade/ui.gd` | 中英菜单、关卡选择、商店、暂停、结算和游戏 HUD。 |
+| `scenes/player.*`、`character_art.gd` | 复用玩家移动与角色像素图集，保持脚底定位。 |
+| `scenes/prop_art.gd`、`crate.tscn` | 等比显示鸡窝／木箱素材，复用掩体碰撞。开放草窝改用 `open_straw_nest.png`，前缘与蛋分层绘制。 |
+| `assets/art/` | 角色、鸡舍、道具图集与透明裁切／背景投影 shader。 |
+| `tests/arcade_flow.gd` | 当前玩法回归验证。测试使用独立存档，不影响正常进度，并排除在导出之外。 |
 
-## `scenes/` 里的玩法文件
+## 关键规则
 
-`.tscn` 保存节点、图形、碰撞体和检查器设置，适合在 Godot 编辑器中调整。
-`.gd` 实现行为和规则。同名文件通常是同一功能的场景与脚本。
+只有左键按下事件会收集，单蛋、鸡窝与连收奖励都必须处于玩家 140 单位基础半径内且没有木箱阻隔；按住鼠标、右键和角色靠近都不会自动拿蛋。连收升级仅扩大一次手动点击的作用范围。
 
-| 功能 | 文件 | 用途与修改入口 |
-| --- | --- | --- |
-| 玩家 | [player.tscn](scenes/player.tscn) · [player.gd](scenes/player.gd) | 场景定义外观、碰撞和搜寻光效。脚本处理移动、朝向、搜寻时锁定移动，以及投放饲料时使用的方向。 |
-| 鸟巢 | [nest.tscn](scenes/nest.tscn) · [nest.gd](scenes/nest.gd) | 场景定义外观、高亮和状态标记。脚本管理单个巢的库存、扣蛋与交互半径。搜寻时长和最近鸟巢的选择由 `game.gd` 管理。 |
-| 母鸡 | [chicken.tscn](scenes/chicken.tscn) · [chicken.gd](scenes/chicken.gd) | 场景定义外观、视野和状态提示。脚本管理巡逻、转向、视线遮挡、听觉、鸣叫冷却，以及追饵、啄食和恢复巡逻。 |
-| 警戒 | [alert.gd](scenes/alert.gd) | 挂在主场景的 `Alert` 节点上。计算警戒涨幅、安静等待时间和下降速度，把数值限制在 0～100。`game.gd` 根据警戒决定农夫何时入场。 |
-| 农夫 | [farmer.tscn](scenes/farmer.tscn) · [farmer.gd](scenes/farmer.gd) | 场景定义外观和碰撞。脚本处理追赶、调查最后目击点、撤退和抓捕。调整追赶速度、视距和搜寻时长时看这里。 |
-| 饲料 | [feed.tscn](scenes/feed.tscn) · [feed.gd](scenes/feed.gd) · [feed_field.gd](scenes/feed_field.gd) | 前两份描述一份饲料，区分绿袋和投放后的谷粒。`feed_field.gd` 管理整局饲料，包括拾取、持有数量、投放距离和落点验证。 |
-| 掩体 | [crate.tscn](scenes/crate.tscn) · [interior_wall.tscn](scenes/interior_wall.tscn) | 木箱和内部墙的可复用场景，包含图形和静态碰撞。调整尺寸后需一起检查角色通行、视野遮挡和导航绕行。 |
-| 随机布局 | [coop_layout.gd](scenes/coop_layout.gd) | 按种子摆放物件、出生点和巡逻点，生成导航网格，验证可达性与开局安全。随机方案用完尝试次数后会回退到固定布局。 |
-| 寻路 | [coop_navigation.gd](scenes/coop_navigation.gd) | 农夫与追饵母鸡共用的寻路工具。直线可通行时直接走，遇到障碍则通过导航网格找下一步方向。 |
-| 界面 | [round_hud.tscn](scenes/round_hud.tscn) · [round_hud.gd](scenes/round_hud.gd) | 场景负责 HUD、开始、暂停和结算界面的排版。脚本负责数值与提示刷新、按钮事件和语言切换。 |
-| 音效 | [round_audio.tscn](scenes/round_audio.tscn) · [round_audio.gd](scenes/round_audio.gd) | 场景把六段音效绑定到播放器。脚本负责播放、停止和关闭窗口时的音频清理。 |
+鸡窝每次点击扣一枚，库存立刻可见地减少；随机补货不直接增加玩家分数。地面刷新有数量上限，金蛋在普通蛋铺满时仍有出现机会。
 
-## `assets/` 里的素材文件
+四关场地边长分别为基础的 1、1.2、1.4、1.6 倍，镜头保持等比例；每关新增障碍和鸡窝，地面采用重复纹理使空间扩展可见。
 
-| 文件 | 用途 |
-| --- | --- |
-| [coop_floor.svg](assets/art/coop_floor.svg) · [night_yard.svg](assets/art/night_yard.svg) · [lamplight.svg](assets/art/lamplight.svg) | 分别是鸡舍地板、夜间院子和灯光渐变。角色、箱子与鸟巢的图形主要画在各自的 `.tscn` 中。 |
-| [search.wav](assets/audio/search.wav) · [egg.wav](assets/audio/egg.wav) · [cluck.wav](assets/audio/cluck.wav) | 分别是搜寻声、取蛋声和母鸡鸣叫。搜寻声的触发频率由 `game.gd` 控制。 |
-| [farmer.wav](assets/audio/farmer.wav) · [success.wav](assets/audio/success.wav) · [failure.wav](assets/audio/failure.wav) | 分别是农夫入场、撤离成功和失败的提示音。 |
-| [CoopUI.ttf](assets/fonts/CoopUI.ttf) · [OFL.txt](assets/fonts/OFL.txt) | 界面字体及其许可。字体是 Noto Sans SC 子集，新增中文文案后要检查新字能否显示。 |
-| [en.po](assets/i18n/en.po) | 英文翻译表。中文原文是查找键，英文是译文。修改中文提示时同步更新对应条目，并保留 `%d`、`%s` 等占位符。 |
+一局只结算一次；未完成时退出菜单不奖励、不解锁。钱币、升级和最高分保存在当前浏览器，清除站点数据会清除进度。保存不可用时菜单会提示。
 
-`*.gd.uid` 保存 Godot 的脚本资源标识，素材旁的 `*.import` 保存导入设置。
-这两类文件应随对应源码或素材提交。Godot 会在本机重建 `.godot/imported/` 里的导入缓存。
+## 验证
 
-## 构建与本地目录
+`godot --headless --path . --fixed-fps 60 --script tests/arcade_flow.gd`
 
-- [.codex/setup.sh](.codex/setup.sh) 为 Linux 云环境安装 Godot 和匹配的导出模板，并执行无界面导入。
-- [build.yml](.github/workflows/build.yml) 在 GitHub Actions 上检查并导出三平台。
-  [package-release.sh](.github/scripts/package-release.sh) 将导出结果打包成发布压缩包。
-  [deploy.yml](.github/workflows/deploy.yml) 用于手动部署 Web 版到 Cloudflare。
-- `build/` 存放各平台构建，以及 `phase-*`、`playtest/` 等目录中的本机验收脚本、截图和日志。
-  `build/.gdignore` 让 Godot 跳过扫描。Git 忽略整个 `build/`，组员拉取仓库时不会收到这里的构建或验收脚本。
-- `.godot/` 是 Godot 缓存，`.vs/` 是 Visual Studio 的本机索引和工作区设置，`.git/` 是 Git 仓库数据。
-  根目录下的 `export_templates/`、`feature_profiles/`、`script_templates/` 和 `text_editor_themes/` 是本机目录。
-  实际导出模板由各自的 Godot 环境安装，版本须与 Godot 4.5.1 Standard 匹配。
+覆盖左键拾取与右键无效、不会靠近误捡、远蛋／远鸡窝拒绝、连收边界、可见库存、补货／补蛋、暂停计时、结算防重复、购买与读取存档、四关增长、金蛋，以及鸡视野遮挡、警戒召来农夫和抓捕结算。
 
-## 分工与交接
+修改后执行无界面导入和 Web 导出，并检查实际渲染与鼠标输入。保持 `.godot/`、`build/` 和凭据不入库。
 
-- **关卡**从 `game.tscn` 入手。编辑器里移动箱子或鸟巢后，在 `Layout` 节点启用 **Use Fixed Layout** 验证摆放。
-  默认随机模式会在开局重新摆放这些物件。修改随机布局规则时看 `coop_layout.gd`。
-- **玩法**先用检查器调数值。搜寻和通关目标看 `Game`，警戒衰减看 `Alert`，巡逻和感知看母鸡，追赶与撤退看农夫。
-  遇到随机地图问题，交接时附上 `Round seed` 和复现步骤。
-- **界面和美术**在 `.tscn` 改排版与图形，在 `en.po` 同步英文。修改箱子或角色尺寸后，
-  和玩法组一起验收碰撞、遮挡和寻路。
-- **提交前**用 `git status --short` 确认主场景引用的 `scenes/` 和 `assets/` 文件、配套元数据和文档都已纳入版本控制，
-  并将 `.vs/`、构建产物与凭据留在本机。让组员从干净检出导入 `project.godot`，按 **F5** 运行并复现一次改动。
+## 旧玩法
+
+原 `game.gd`、`game.tscn`、`coop_layout.gd`、`chicken.gd`、`farmer.gd` 等保留为旧潜行原型，已不再是启动入口。`tests/gameplay_flow.gd` 仅用于该原型，当前验收请运行 `tests/arcade_flow.gd`。
+
+开发阶段和下一步见 `DEVELOPMENT_PLAN.md`。字体许可见 `assets/fonts/OFL.txt` 与 `PressStart2P-OFL.txt`。
+
+## 巡逻与拾取范围
+
+`pickup_range.gd` 在脚下显示淡黄色羽化光晕（无虚线、中心透明），基础直径由 280 缩至 140；`can_collect_point` 校验距离与遮挡，连收升级不能绕过边界。
+`world.gd` 在当前随机场景烘焙导航网格，供鸡与农夫 AI 共用。鸡分散出生于四个区域，速度 82（黄金鸡 90）；每轮打乱四区顺序，随机选取可达目标，走完后重新打乱，卡住时更换目标。
+`game.gd` 汇总原鸡的视野与报警信号，提高全局警戒，60 时预警并召回农夫。被抓保留积分、提前结算，不提前解锁。
+本版不播放音效。
+
+## 60 秒短局与操作反馈
+
+第一关 4 只普通巡逻鸡，后续每关增加 1 只。黄金鸡事件按局长比例触发：第 3／4 关 30 秒出现，第四关 45 秒追加。最后 10 秒提示且计时器变为暖橙色。
+鼠标悬停在范围内且无遮挡的蛋或有库存的草窝上时，目标轻微高亮并显示手形光标；与点击共用目标判定，暂停和结算时清除。
+玩家上下移动使用 `thief_run.png` 的正背面各四帧，10 帧／秒，统一 354 像素画布基线并保持角色显示高度；移动拾取不会切断腿部动画。横向移动与原有角色素材继续复用。
+
+## 开局保护、点击容错与局部连击
+
+每局开头 3 秒包含在 60 秒局长内；玩家可以移动和捡蛋，但不会被鸡看见、鸣叫报警或被农夫抓住。角色浅蓝色提示及附近倒计时显示保护时间，暂停会冻结保护。
+散落蛋扩大约 20%，鼠标点击中心附近 24 屏幕像素内即可选取；候选优先选择玩家半径内且无遮挡的蛋。点击容错不改变 70 单位基础拾取半径，鸡窝库存与飞蛋效果仍独立计数。
+连击显示移动到角色附近，每到 5 的倍数触发一次弹出、金色光点和鼓励短句；显示连击次数，实际得分倍率另行标注。主 HUD 不再显示顶部连击框。
+新增 `tests/arcade_roaming.gd` 验证两种地图种子的实际跨区行走、四区随机目标、点击容错与范围约束、局部连击和开局抓捕保护，命令与主回归相同，仅替换脚本文件名。
+散落道具仅完成文字设计，见 [ITEM_DESIGN.md](ITEM_DESIGN.md)，本轮尚未生成道具。
