@@ -32,6 +32,10 @@ var reaction_marker: Label
 var _reaction_left := 0.0
 var _reaction_age := 0.0
 var danger_label: Label
+var storage_notice: Panel
+var storage_label: Label
+var menu_storage_label: Label
+var menu_save_help: Label
 var pause_button: Button
 var round_duration := 60
 var _toast_left := 0.0
@@ -124,6 +128,16 @@ func _ready() -> void:
 	overlay.color = Color(0.015,0.025,0.055,0.84)
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	screen.add_child(overlay)
+	storage_notice = Panel.new()
+	storage_notice.position = Vector2(210,96)
+	storage_notice.size = Vector2(540,44)
+	storage_notice.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	storage_notice.add_theme_stylebox_override("panel",_style(Color("172137"),Color("d6ac64"),1))
+	screen.add_child(storage_notice)
+	storage_label = _label(storage_notice,Rect2(8,3,524,38),"",13)
+	storage_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	storage_label.add_theme_color_override("font_color",Color("ffe1a0"))
+	storage_notice.hide()
 
 func _style(background: Color, border := Color("bd914b"), width := 1) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -165,6 +179,7 @@ func _button(parent: Node, rect: Rect2, text: String, callback: Callable) -> But
 func _process(delta: float) -> void:
 	if is_instance_valid(transition_screen) and transition_screen.visible and is_instance_valid(transition_thief):
 		transition_thief.update_pose(Vector2.RIGHT,true,&"idle",delta)
+	storage_notice.visible = _profile != null and (not _profile.storage_issue.is_empty() or not _profile.saved) and not overlay.visible and not (is_instance_valid(transition_screen) and transition_screen.visible)
 	_toast_left = maxf(0.0,_toast_left-delta)
 	toast.visible = _toast_left > 0.0 and not overlay.visible
 	if not get_tree().paused:
@@ -208,6 +223,21 @@ func show_reaction(zh: String, en: String, seconds := 1.0) -> void:
 	_reaction_age = 0.0
 	reaction_label.show()
 	reaction_marker.show()
+
+func update_storage_status(profile: ArcadeProfile) -> void:
+	_profile = profile
+	var text := ""
+	match profile.storage_issue:
+		"read": text = tr2("无法读取原存档，当前为临时进度；刷新或关闭后，本次进度可能丢失。","Saved progress could not be read. Playing temporarily; refreshing or closing may lose this session's progress.")
+		"invalid": text = tr2("原存档暂时无法加载，不会被覆盖；当前临时进度在刷新或关闭后可能丢失。","The existing save could not be loaded and will not be overwritten. Temporary progress may be lost on refresh or close.")
+		"write": text = tr2("当前无法保存新进度；可以继续游戏，但刷新或关闭后，新进度可能丢失。","New progress cannot be saved. You can keep playing, but refreshing or closing may lose new progress.")
+	if text.is_empty() and not profile.saved:
+		text = tr2("当前无法保存新进度；刷新或关闭后，新进度可能丢失。","New progress cannot be saved and may be lost on refresh or close.")
+	storage_label.text = text
+	if is_instance_valid(menu_storage_label):
+		menu_storage_label.text = text
+		menu_storage_label.visible = not text.is_empty()
+	if is_instance_valid(menu_save_help): menu_save_help.visible = text.is_empty()
 
 func announce(zh: String, en: String) -> void:
 	toast.text = tr2(zh,en)
@@ -299,8 +329,11 @@ func show_menu(profile: ArcadeProfile, selected: int, result := {}, paused := fa
 		button.disabled = not shop_enabled or price < 0 or profile.coins < price
 		upgrade_buttons.append(button)
 	_label(panel,Rect2(18,320,740,43),tr2("WASD 移动 · 点击圈内物品收整圈 · Esc 暂停\n每小关 60 秒；鸡舍 2～4 关有蛇蛋，捡到后侧移躲开。","WASD move · Click an item to gather the ring · Esc pause\n60s per room. Chicken rooms 2–4 hide snake eggs: sidestep the dash."),14)
-	_label(panel,Rect2(18,368,740,22),tr2("金币保留｜换图出发或购买新图增益时，旧图增益归零；开始只需点一次","Keep coins. Starting/buying in a new map resets buffs. Start needs one click."),12)
-	if not profile.saved: _label(panel,Rect2(18,391,740,20),tr2("当前无法保存进度，请保持页面打开。","Storage unavailable. Keep this page open."),12)
+	menu_save_help = _label(panel,Rect2(18,368,740,22),tr2("金币保留｜换图出发或购买新图增益时，旧图增益归零；开始只需点一次","Keep coins. Starting/buying in a new map resets buffs. Start needs one click."),12)
+	menu_storage_label = _label(panel,Rect2(18,367,740,48),"",12)
+	menu_storage_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	menu_storage_label.add_theme_color_override("font_color",Color("ffd38a"))
+	update_storage_status(profile)
 	var caption := tr2("继续游戏","Resume") if paused else (tr2("出发：%d-%d · %d 秒","Play %d-%d · %d seconds") % [_map_selected,room,round_duration] if active and not profile.map_complete else tr2("进入 %s · 金币保留，增益归零","Enter %s · keep coins, reset buffs") % ArcadeThemes.name_for(_map_selected,language))
 	if profile.free_selection and not paused: caption = tr2("试玩：%d-%d · 60 秒","Playtest %d-%d · 60 seconds") % [_map_selected,room]
 	primary_button = _button(panel,Rect2(24,423,500,44),caption,func():

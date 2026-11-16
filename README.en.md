@@ -46,3 +46,9 @@ Refinement: detection triggers a brief screen shake and large local exclamation,
 Regression `tests/collection_escape.gd` covers whole-ring pickup, reach/cover, one-click cross-map/replay starts, pre-start buying, alert 100, slower pursuit and a real three-second escape with pause/departure grace.
 
 Patrol sight tuning: animals use 54–60° cones instead of 78°, with screen-space reach about 140–159 instead of 175–231. Late-room unobstructed cone area is reduced by roughly 64%. The visible cone and actual sight test share these smaller parameters; cover, alert 100 and farmer escape behavior remain active.
+
+## Shared progress and playtest log
+
+The shared log in [README.md](README.md) records the teacher's reviewed baseline (`1fa4359`), merged PRs #4/#5, known engineering evidence, next actions and owner placeholders. The current storage-notice change is based on `c1306ea`. Browser persistence, normal unlocks, blocked storage/private-window behavior, new-player comprehension and late-room readability are explicitly **pending**, with no invented results. This change performs build preparation only; no new gameplay or browser playtest is run.
+
+Startup now distinguishes a missing save from denied reads and failed writes. A unique temporary key checks writability without touching the progress key. Unreadable or unrecognized saves stay protected from overwrite while the player continues temporarily. Menu and in-round notices explain the possible loss of temporary/new progress on refresh or close; a later successful write clears a write-failure notice. Private browsing does not automatically imply blocked storage. Record the exact commit, browser/version and window size when these cases are eventually tested.

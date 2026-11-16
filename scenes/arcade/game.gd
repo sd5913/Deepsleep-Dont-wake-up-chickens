@@ -77,6 +77,8 @@ func _ready() -> void:
 	ui = ArcadeUI.new()
 	ui.round_duration = ceili(round_seconds)
 	add_child(ui)
+	profile.storage_status_changed.connect(_on_storage_status_changed)
+	ui.update_storage_status(profile)
 	ui.start_requested.connect(_request_round)
 	ui.map_selection_changed.connect(_select_map)
 	ui.restart_requested.connect(_restart_map)
@@ -617,3 +619,6 @@ func _reset_shake() -> void:
 	_shake_left = 0.0
 	_shake_strength = 0.0
 	if is_instance_valid(camera): camera.offset = Vector2.ZERO
+
+func _on_storage_status_changed() -> void:
+	if is_instance_valid(ui): ui.update_storage_status(profile)
