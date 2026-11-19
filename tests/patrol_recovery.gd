@@ -6,6 +6,7 @@ func _initialize() -> void: call_deferred("run")
 func run() -> void:
 	var game: ArcadeGame = load("res://scenes/arcade/game.tscn").instantiate()
 	game.profile = ArcadeProfile.new()
+	game.profile.powerup_tutorials = [true,true,true]
 	game.profile.save_path = SAVE
 	game.guards_enabled = false
 	game.use_fixed_seed = true

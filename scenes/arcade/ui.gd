@@ -8,6 +8,7 @@ signal upgrade_requested(index: int)
 signal pause_requested
 signal abandon_requested
 signal selection_changed(level: int)
+signal powerup_guide_closed
 
 const FONT := preload("res://assets/fonts/CoopUI.ttf")
 const PIXEL := preload("res://assets/fonts/PressStart2P-Regular.ttf")
@@ -15,6 +16,18 @@ const STAGE_ZH := ["小鸡舍", "鸡舍院落", "扩建农场", "大型农场"]
 const STAGE_EN := ["Coop", "Yard", "Farm", "Estate"]
 var language := "zh"
 var screen: Control
+var hud_root: Control
+var hud_chrome: Control
+var toast_panel: Panel
+var item_title: Label
+var item_icon: ArcadeUIIcon
+var score_title: Label
+var clock_title: Label
+var powerup_gauges: Array[ProgressBar] = []
+var _last_score := 0
+var _score_pop := 1.0
+var _seconds_left := 60.0
+var _current_items := 0
 var overlay: ColorRect
 var score_label: Label
 var egg_label: Label
@@ -55,6 +68,13 @@ var _current_chain := 0
 var _current_multiplier := 1
 var _combo_pop_age := 99.0
 var _cheer_text := ""
+var powerup_guide: ColorRect
+var powerup_guide_button: Button
+var powerup_bar: Control
+var powerup_tiles: Array[Panel] = []
+var powerup_timers: Array[Label] = []
+var powerup_caption: Label
+var _powerup_caption_left := 0.0
 
 func tr2(zh: String, en: String) -> String:
 	return en if language == "en" else zh
@@ -69,17 +89,26 @@ func _ready() -> void:
 	theme.default_font_size = 16
 	screen.theme = theme
 	add_child(screen)
-	var frames := Control.new()
-	frames.set_script(preload("res://scenes/hud_frames.gd"))
-	frames.set("show_combo_frame",false)
-	frames.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	screen.add_child(frames)
-	danger_label = _label(screen,Rect2(205,10,166,30),"",15)
-	score_label = _label(screen,Rect2(47,11,137,31),"",17)
-	time_label = _label(screen,Rect2(832,11,106,31),"1:00",18)
+	hud_root = Control.new()
+	hud_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hud_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(hud_root)
+	hud_chrome = Control.new()
+	hud_chrome.set_script(preload("res://scenes/arcade/ui_chrome.gd"))
+	hud_root.add_child(hud_chrome)
+	_icon(hud_root,Rect2(24,24,28,28),ArcadeUIIcon.Kind.STAR)
+	score_title = _left_label(hud_root,Rect2(61,15,130,16),tr2("本局得分","SCORE"),11,ArcadeUISkin.MUTED)
+	score_label = _left_label(hud_root,Rect2(61,31,130,26),"0",21)
+	score_label.add_theme_font_override("font",PIXEL)
+	score_label.pivot_offset = Vector2(0,13)
+	danger_label = _label(hud_root,Rect2(310,15,340,22),"",12)
+	_icon(hud_root,Rect2(809,25,27,27),ArcadeUIIcon.Kind.CLOCK)
+	clock_title = _left_label(hud_root,Rect2(843,15,98,16),tr2("剩余时间","TIME LEFT"),10,ArcadeUISkin.MUTED)
+	time_label = _left_label(hud_root,Rect2(843,32,98,25),"1:00",18)
+	time_label.add_theme_font_override("font",PIXEL)
 	combo_anchor = Control.new()
 	combo_anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	screen.add_child(combo_anchor)
+	hud_root.add_child(combo_anchor)
 	combo_anchor.draw.connect(_draw_combo_sparkles)
 	combo_label = _label(combo_anchor,Rect2(-100,-25,200,30),"",22)
 	combo_label.pivot_offset = Vector2(100,15)
@@ -88,26 +117,28 @@ func _ready() -> void:
 	combo_cheer = _label(combo_anchor,Rect2(-100,12,200,24),"",14)
 	combo_cheer.add_theme_color_override("font_outline_color",Color("172033"))
 	combo_cheer.add_theme_constant_override("outline_size",4)
-	protection_label = _label(screen,Rect2(0,0,150,25),"",14)
+	protection_label = _label(hud_root,Rect2(0,0,150,25),"",14)
 	protection_label.add_theme_color_override("font_color",Color("b8f2ff"))
 	protection_label.add_theme_color_override("font_outline_color",Color("172033"))
 	protection_label.add_theme_constant_override("outline_size",4)
 	protection_label.hide()
-	reaction_label = _label(screen,Rect2(0,0,280,40),"",24)
+	reaction_label = _label(hud_root,Rect2(0,0,280,40),"",24)
 	reaction_label.pivot_offset = Vector2(140,20)
 	reaction_label.add_theme_color_override("font_color",Color("ffbc6e"))
 	reaction_label.add_theme_color_override("font_outline_color",Color("341f2c"))
 	reaction_label.add_theme_constant_override("outline_size",6)
 	reaction_label.hide()
-	reaction_marker = _label(screen,Rect2(0,0,48,56),"!",42)
+	reaction_marker = _label(hud_root,Rect2(0,0,48,56),"!",42)
 	reaction_marker.add_theme_font_override("font",PIXEL)
 	reaction_marker.add_theme_color_override("font_color",Color("fff2a6"))
 	reaction_marker.add_theme_color_override("font_outline_color",Color("412330"))
 	reaction_marker.add_theme_constant_override("outline_size",6)
 	reaction_marker.hide()
-	egg_label = _label(screen,Rect2(22,499,140,29),"",15)
-	stage_label = _label(screen,Rect2(785,499,154,29),"",14)
-	hint = _label(screen,Rect2(231,499,500,29),"",14)
+	item_icon = _icon(hud_root,Rect2(24,497,26,26),ArcadeUIIcon.Kind.RESOURCE)
+	item_title = _left_label(hud_root,Rect2(59,489,110,16),"",10,ArcadeUISkin.MUTED)
+	egg_label = _left_label(hud_root,Rect2(59,505,110,22),"0",17)
+	stage_label = _label(hud_root,Rect2(786,493,154,30),"",14)
+	hint = _label(hud_root,Rect2(217,498,526,27),"",12)
 	combo_bar = ProgressBar.new()
 	combo_bar.position = Vector2(-45,7)
 	combo_bar.size = Vector2(90,4)
@@ -119,11 +150,15 @@ func _ready() -> void:
 	combo_bar.add_theme_stylebox_override("background",_style(Color("0c1326"),Color("453520"),0))
 	combo_anchor.add_child(combo_bar)
 	combo_bar.size = Vector2(90,4)
-	toast = _label(screen,Rect2(200,63,560,30),"",17)
+	toast_panel = _panel(hud_root,Rect2(190,70,580,44),Color(0.04,0.08,0.13,0.94),Color("847856"))
+	toast_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	toast = _label(toast_panel,Rect2(12,4,556,36),"",14)
+	toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	toast.add_theme_color_override("font_outline_color",Color("172033"))
 	toast.add_theme_constant_override("outline_size",4)
-	pause_button = _button(screen,Rect2(852,48,91,25),"Esc",func(): pause_requested.emit())
-	pause_button.add_theme_font_size_override("font_size",13)
+	pause_button = _button(hud_root,Rect2(886,68,60,26),"ESC",func(): pause_requested.emit())
+	pause_button.add_theme_font_override("font",PIXEL)
+	pause_button.add_theme_font_size_override("font_size",10)
 	overlay = ColorRect.new()
 	overlay.color = Color(0.015,0.025,0.055,0.84)
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -138,15 +173,144 @@ func _ready() -> void:
 	storage_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	storage_label.add_theme_color_override("font_color",Color("ffe1a0"))
 	storage_notice.hide()
+	_build_powerup_feedback()
+
+func _powerup_icon(parent: Node, kind: int, rect: Rect2) -> TextureRect:
+	var icon := TextureRect.new()
+	icon.texture = ArcadePowerup.texture_for(kind)
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.position = rect.position
+	icon.size = rect.size
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(icon)
+	return icon
+
+func _build_powerup_feedback() -> void:
+	powerup_bar = Control.new()
+	powerup_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(powerup_bar)
+	for i in range(3):
+		var tile := Panel.new()
+		tile.size = Vector2(60,33)
+		tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tile.add_theme_stylebox_override("panel",_style(Color(0.04,0.08,0.15,0.92),ArcadePowerup.COLORS[i]))
+		powerup_bar.add_child(tile)
+		_powerup_icon(tile,i,Rect2(4,3,24,23))
+		powerup_timers.append(_label(tile,Rect2(30,3,27,23),"",12))
+		var gauge := ProgressBar.new()
+		gauge.position = Vector2(4,27)
+		gauge.size = Vector2(52,3)
+		gauge.max_value = ArcadePowerup.DURATIONS[i]
+		gauge.show_percentage = false
+		gauge.add_theme_font_size_override("font_size",1)
+		gauge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		gauge.add_theme_stylebox_override("fill",ArcadeUISkin.meter(ArcadePowerup.COLORS[i]))
+		gauge.add_theme_stylebox_override("background",ArcadeUISkin.meter(Color("263745")))
+		tile.add_child(gauge)
+		gauge.size = Vector2(52,3)
+		powerup_gauges.append(gauge)
+		powerup_tiles.append(tile)
+	powerup_bar.hide()
+	powerup_caption = _label(screen,Rect2(0,0,300,24),"",14)
+	powerup_caption.add_theme_color_override("font_outline_color",Color("172033"))
+	powerup_caption.add_theme_constant_override("outline_size",4)
+	powerup_caption.hide()
+
+func update_powerups(times: Array[float], playing: bool) -> void:
+	var shown := 0
+	for i in range(3):
+		powerup_tiles[i].visible = times[i] > 0.0
+		if times[i] <= 0.0: continue
+		powerup_tiles[i].position = Vector2(shown*66,0)
+		powerup_tiles[i].modulate.a = 1.0 if times[i] > 1.0 else 0.5+0.5*absf(sin(times[i]*15.0))
+		powerup_timers[i].text = "%ds" % ceili(times[i])
+		powerup_gauges[i].value = times[i]
+		shown += 1
+	powerup_bar.size = Vector2(maxi(0,shown*66-6),33)
+	powerup_bar.visible = shown > 0 and playing and not overlay.visible and not is_powerup_guide_visible()
+	powerup_caption.visible = _powerup_caption_left > 0.0 and playing and not overlay.visible and not is_powerup_guide_visible()
+
+func show_powerup_pickup(kind: int) -> void:
+	powerup_caption.text = "%s · %ds" % [ArcadePowerup.name_for(kind,language),int(ArcadePowerup.DURATIONS[kind])]
+	powerup_caption.add_theme_color_override("font_color",ArcadePowerup.COLORS[kind])
+	_powerup_caption_left = 1.3
+
+func is_powerup_guide_visible() -> bool:
+	return is_instance_valid(powerup_guide) and powerup_guide.visible
+
+func show_powerup_guide(kind: int) -> void:
+	if is_instance_valid(powerup_guide):
+		screen.remove_child(powerup_guide)
+		powerup_guide.queue_free()
+	powerup_guide = ColorRect.new()
+	powerup_guide.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	powerup_guide.color = Color(0.015,0.025,0.055,0.82)
+	powerup_guide.mouse_filter = Control.MOUSE_FILTER_STOP
+	screen.add_child(powerup_guide)
+	var panel := Panel.new()
+	panel.position = Vector2(200,92)
+	panel.size = Vector2(560,356)
+	panel.add_theme_stylebox_override("panel",_style(Color("0b1728"),ArcadePowerup.COLORS[kind],3))
+	powerup_guide.add_child(panel)
+	_label(panel,Rect2(20,12,520,30),tr2("发现新道具！","NEW POWERUP!"),20)
+	var icon_well := _panel(panel,Rect2(220,48,120,106),Color("203735"),Color("5b7467"))
+	_powerup_icon(icon_well,kind,Rect2(11,6,98,91))
+	var duration := _panel(panel,Rect2(355,84,74,31),Color("273933"),ArcadePowerup.COLORS[kind])
+	_label(duration,Rect2(0,0,74,31),tr2("%d秒","%ds") % int(ArcadePowerup.DURATIONS[kind]),17)
+	_label(panel,Rect2(20,158,520,34),ArcadePowerup.name_for(kind,language),26)
+	var description := _label(panel,Rect2(30,199,500,46),ArcadePowerup.description_for(kind,language),17)
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var extra := tr2("这是隐匿，不会挡住小蛇；已有警戒仍会保留。","Stealth does not block snakes or erase existing alert.") if kind == ArcadePowerup.Kind.STEALTH else tr2("同种刷新时间，不同道具可以一起生效。","Same kind refreshes its timer; different kinds combine.")
+	_label(panel,Rect2(20,246,520,22),extra,12)
+	_label(panel,Rect2(20,273,520,22),tr2("碰到道具自动生效 · 倒计时已暂停","Touch to activate automatically · Timer paused"),14)
+	powerup_guide_button = _button(panel,Rect2(142,308,276,34),tr2("知道了，试试看！","GOT IT · LET'S TRY!"),func(): powerup_guide_closed.emit())
+	powerup_guide_button.add_theme_stylebox_override("normal",ArcadeUISkin.button(Color("4a6450"),ArcadePowerup.COLORS[kind],2))
+	powerup_guide_button.grab_focus()
+	powerup_bar.hide()
+	powerup_caption.hide()
+	pause_button.hide()
+	_powerup_caption_left = 0.0
+
+func hide_powerup_guide() -> void:
+	if is_instance_valid(powerup_guide): powerup_guide.hide()
+	if not overlay.visible: pause_button.show()
 
 func _style(background: Color, border := Color("bd914b"), width := 1) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = background
-	style.set_border_width_all(width)
-	style.border_color = border
-	style.content_margin_left = 8
-	style.content_margin_right = 8
-	return style
+	return ArcadeUISkin.box(background,border,width)
+
+func _panel(parent: Node, rect: Rect2, background := ArcadeUISkin.PANEL, border := Color("46515b")) -> Panel:
+	var panel := Panel.new()
+	panel.position = rect.position
+	panel.size = rect.size
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_theme_stylebox_override("panel",_style(background,border))
+	parent.add_child(panel)
+	return panel
+
+func _left_label(parent: Node, rect: Rect2, text: String, font_size := 16, color := ArcadeUISkin.CREAM) -> Label:
+	var label := _label(parent,rect,text,font_size)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	label.add_theme_color_override("font_color",color)
+	return label
+
+func _icon(parent: Node, rect: Rect2, kind: int, map_index := 0) -> ArcadeUIIcon:
+	var icon := ArcadeUIIcon.new()
+	icon.position = rect.position
+	icon.size = rect.size
+	icon.kind = kind
+	icon.theme_index = map_index
+	parent.add_child(icon)
+	return icon
+
+func _stat_card(parent: Node, rect: Rect2, caption: String, value: String, kind: int, accent: Color) -> void:
+	var card := _panel(parent,rect,ArcadeUISkin.CARD,Color(accent,0.45))
+	_icon(card,Rect2(12,19,28,28),kind,_map_selected-1)
+	_left_label(card,Rect2(51,8,rect.size.x-58,18),caption,11,ArcadeUISkin.MUTED)
+	var number := _left_label(card,Rect2(51,28,rect.size.x-58,28),value,21,accent)
+	if value.length() < 7: number.add_theme_font_override("font",PIXEL)
+	if value.length() < 7: number.add_theme_font_size_override("font_size",18)
 
 func _label(parent: Node, rect: Rect2, text: String, font_size := 16) -> Label:
 	var label := Label.new()
@@ -166,12 +330,15 @@ func _button(parent: Node, rect: Rect2, text: String, callback: Callable) -> But
 	button.position = rect.position
 	button.size = rect.size
 	button.text = text
-	button.add_theme_stylebox_override("normal",_style(Color("202237")))
-	button.add_theme_stylebox_override("hover",_style(Color("594126"),Color("ffe19b"),2))
-	button.add_theme_stylebox_override("pressed",_style(Color("7b592d"),Color("ffe19b"),2))
-	button.add_theme_stylebox_override("disabled",_style(Color("111725"),Color("343744")))
+	button.add_theme_stylebox_override("normal",ArcadeUISkin.button())
+	button.add_theme_stylebox_override("hover",ArcadeUISkin.button(Color("294253"),ArcadeUISkin.GOLD,2))
+	button.add_theme_stylebox_override("pressed",ArcadeUISkin.button(Color("405345"),ArcadeUISkin.CREAM,2))
+	button.add_theme_stylebox_override("disabled",ArcadeUISkin.button(Color("14212b"),Color("35414a")))
 	button.add_theme_stylebox_override("focus",_style(Color(0,0,0,0),Color("fff0b0"),2))
 	button.add_theme_font_size_override("font_size",15)
+	button.add_theme_color_override("font_color",ArcadeUISkin.CREAM)
+	button.add_theme_color_override("font_hover_color",Color.WHITE)
+	button.add_theme_color_override("font_disabled_color",Color("778386"))
 	button.pressed.connect(callback)
 	parent.add_child(button)
 	return button
@@ -180,16 +347,21 @@ func _process(delta: float) -> void:
 	if is_instance_valid(transition_screen) and transition_screen.visible and is_instance_valid(transition_thief):
 		transition_thief.update_pose(Vector2.RIGHT,true,&"idle",delta)
 	storage_notice.visible = _profile != null and (not _profile.storage_issue.is_empty() or not _profile.saved) and not overlay.visible and not (is_instance_valid(transition_screen) and transition_screen.visible)
+	toast_panel.position.y = 146 if storage_notice.visible else 70
 	_toast_left = maxf(0.0,_toast_left-delta)
-	toast.visible = _toast_left > 0.0 and not overlay.visible
+	toast_panel.visible = _toast_left > 0.0 and not overlay.visible and not is_powerup_guide_visible()
+	toast.visible = toast_panel.visible
 	if not get_tree().paused:
 		_combo_pop_age += delta
+		_powerup_caption_left = maxf(0.0,_powerup_caption_left-delta)
 		_reaction_left = maxf(0.0,_reaction_left-delta)
 		_reaction_age += delta
+		_score_pop += delta
+	score_label.scale = Vector2.ONE*(1.0+0.10*exp(-_score_pop*12.0))
 	reaction_label.visible = _reaction_left > 0.0 and not overlay.visible
 	reaction_marker.visible = reaction_label.visible
 	reaction_label.scale = Vector2.ONE*(1.0+0.35*exp(-_reaction_age*9.0))
-	combo_anchor.visible = _current_chain >= 2 and not overlay.visible and _reaction_left == 0.0
+	combo_anchor.visible = _current_chain >= 2 and not overlay.visible and _reaction_left == 0.0 and not is_powerup_guide_visible()
 	if overlay.visible: protection_label.hide()
 	var pop := _combo_pop_age
 	var factor := lerpf(0.65,1.25,pop/0.08) if pop < 0.08 else 1.0+0.25*exp(-12.0*(pop-0.08))*cos((pop-0.08)*18.0)
@@ -216,6 +388,8 @@ func update_actor_feedback(point: Vector2, body_height: float, protection_left: 
 	protection_label.position = Vector2(clampf(point.x-75,15,795),clampf(point.y+8,80,467))
 	protection_label.text = tr2("开局保护 %ds","Protected %ds") % ceili(protection_left)
 	protection_label.visible = protection_left > 0 and not overlay.visible
+	powerup_bar.position = Vector2(clampf(point.x-powerup_bar.size.x*0.5,12,948-powerup_bar.size.x),clampf(point.y+31,105,447))
+	powerup_caption.position = Vector2(clampf(point.x-150,12,648),clampf(point.y+60,110,472))
 
 func show_reaction(zh: String, en: String, seconds := 1.0) -> void:
 	reaction_label.text = tr2(zh,en)
@@ -244,8 +418,22 @@ func announce(zh: String, en: String) -> void:
 	_toast_left = 3.0
 
 func update_game(score: int, eggs: int, chain: int, multiplier: int, combo_left: float, seconds: float, level: int) -> void:
-	score_label.text = tr2("得分 %d","Score %d") % score
-	egg_label.text = "%s %d" % [ArcadeThemes.item_for(_map_selected,language),eggs]
+	if score > _last_score: _score_pop = 0.0
+	_last_score = score
+	_seconds_left = seconds
+	_current_items = eggs
+	score_label.text = str(score)
+	score_title.text = tr2("本局得分","SCORE")
+	clock_title.text = tr2("剩余时间","TIME LEFT")
+	item_title.text = ArcadeThemes.item_for(_map_selected,language)
+	if item_icon.theme_index != _map_selected-1:
+		item_icon.theme_index = _map_selected-1
+		item_icon.material = ThemeSprites.item_material(item_icon.theme_index) if item_icon.theme_index > 0 else null
+		item_icon.queue_redraw()
+	egg_label.text = str(eggs)
+	score_label.add_theme_font_size_override("font_size",16 if score >= 1000000 else 21)
+	hud_chrome.seconds = seconds
+	hud_chrome.queue_redraw()
 	time_label.text = "%d:%02d" % [ceili(seconds)/60,ceili(seconds)%60]
 	time_label.add_theme_color_override("font_color",Color("ff9d6e") if seconds > 0 and seconds <= 10 else Color("ffe5ad"))
 	if chain > _current_chain and chain >= 5 and chain%5 == 0:
@@ -257,7 +445,7 @@ func update_game(score: int, eggs: int, chain: int, multiplier: int, combo_left:
 	combo_anchor.visible = chain >= 2 and not overlay.visible and _reaction_left == 0.0
 	combo_bar.value = combo_left
 	stage_label.text = "%s %d-%d" % [ArcadeThemes.name_for(_map_selected,language),_map_selected,level]
-	hint.text = tr2("点圈内物品收整圈 / 连点资源点　 WASD 移动","Click an item to gather the ring / patches   WASD move")
+	hint.text = tr2("左键收集 / 道具碰到即用　 WASD 移动","Click to collect / Touch powerups   WASD move")
 
 func show_menu(profile: ArcadeProfile, selected: int, result := {}, paused := false, map_index := 0) -> void:
 	_profile = profile
@@ -265,6 +453,7 @@ func show_menu(profile: ArcadeProfile, selected: int, result := {}, paused := fa
 	_map_selected = profile.active_map if map_index == 0 else map_index
 	_result = result
 	_paused = paused
+	_running = false
 	map_buttons.clear()
 	room_buttons.clear()
 	upgrade_buttons.clear()
@@ -272,84 +461,144 @@ func show_menu(profile: ArcadeProfile, selected: int, result := {}, paused := fa
 		overlay.remove_child(child)
 		child.queue_free()
 	overlay.show()
+	hud_root.hide()
 	_reaction_left = 0.0
 	reaction_label.hide()
 	reaction_marker.hide()
 	combo_anchor.hide()
 	protection_label.hide()
+	powerup_bar.hide()
+	powerup_caption.hide()
+	_powerup_caption_left = 0.0
 	pause_button.hide()
-	var panel := Panel.new()
-	panel.position = Vector2(92,22)
-	panel.size = Vector2(776,496)
-	panel.add_theme_stylebox_override("panel",_style(Color("0b1224"),Color("d3a859"),2))
-	overlay.add_child(panel)
-	var title := tr2("夜访农场 · 自由试玩","NIGHT FARM · FREE PLAY") if profile.free_selection else tr2("夜访农场 · 四图闯关","NIGHT FARM · HARVEST RUN")
-	if paused: title = tr2("休息一下","PAUSED")
-	elif result.get("entered_map",false): title = tr2("行前准备","READY FOR A NEW MAP")
-	elif result.get("map_complete",false): title = tr2("四图全部通关！","ALL FOUR MAPS CLEARED!") if profile.cleared.all(func(value): return value) else tr2("地图通关！","MAP COMPLETE!")
-	elif result.get("caught",false): title = tr2("被农夫抓住 · 可重试本关","CAUGHT · TRY THIS ROOM AGAIN")
-	elif result.has("score"): title = tr2("小关完成 · 购买增益再出发","ROOM COMPLETE · UPGRADE & GO")
-	_label(panel,Rect2(18,8,740,39),title,25 if language == "zh" else 21)
-	var summary := tr2("试玩模式：全部地图和小关可直接选择；金币保留，换图增益清零。","Playtest: pick any map and room. Keep coins; reset buffs on map entry.") if profile.free_selection else tr2("四张地图，每图四个小关；金币跨图保留，增益换图清零。","4 maps × 4 rooms. Keep coins between maps; buffs reset.")
-	if result.has("score"):
-		summary = tr2("%d-%d 得分 %d　收集 %d　奖励 %d 币","%d-%d  Score %d   Items %d   +%d coins") % [result.get("map",1),result.level,result.score,result.get("eggs",0),result.reward]
-		if result.get("map_complete",false): summary += tr2("　地图总分 %d","   Map total %d") % result.get("total",0)
-	elif result.get("entered_map",false): summary = tr2("金币已保留，增益已归零；现在可以购买本图增益。","Coins kept, buffs reset. Buy new buffs before entering the first room.")
-	_label(panel,Rect2(16,49,744,27),summary,14)
+	if paused:
+		_show_pause_card(profile)
+		return
+	var accent: Color = ArcadeUISkin.ACCENTS[_map_selected-1]
+	var panel := _panel(overlay,Rect2(42,22,876,496),ArcadeUISkin.PANEL,ArcadeUISkin.GOLD)
+	_panel(panel,Rect2(0,0,210,496),ArcadeUISkin.INK,Color("465254"))
+	_left_label(panel,Rect2(18,16,172,34),tr2("夜访农场","NIGHT FARM"),25 if language == "zh" else 20)
+	var subtitle := _left_label(panel,Rect2(20,50,155,18),"POCKET HARVEST",9,ArcadeUISkin.GOLD)
+	subtitle.add_theme_font_override("font",PIXEL)
+	_left_label(panel,Rect2(20,75,168,18),tr2("60秒，把袋子装满！","60 seconds. Fill your bag!"),12,ArcadeUISkin.MUTED)
+	var title := _left_label(panel,Rect2(230,12,466,39),tr2("%s · 准备出发","%s · READY") % ArcadeThemes.name_for(_map_selected,language),25 if language == "zh" else 23)
+	var summary := tr2("任选小关试玩 · 金币保留，进入新图时增益归零。","Pick any room. Keep coins; purchased buffs reset on map entry.") if profile.free_selection else tr2("完成四个小关，解锁下一张地图。","Clear four rooms to unlock the next map.")
+	if result.get("caught",false):
+		title.text = tr2("再来一局？","ONE MORE TRY?")
+		summary = tr2("本局收获已结算，调整路线再试一次。","Your harvest is settled. Pick a new route and try again.")
+	elif result.get("map_complete",false):
+		title.text = tr2("地图完成！","MAP COMPLETE!")
+		summary = tr2("%s 收获完成，准备下一次夜访。","%s complete. Get ready for another harvest.") % ArcadeThemes.name_for(result.get("map",_map_selected),language)
+	elif result.has("score"):
+		title.text = tr2("收获满满！","A GOOD HARVEST!")
+		summary = tr2("本关完成，买点增益再出发吧。","Room complete. Upgrade your kit before the next run.")
+	elif result.get("entered_map",false):
+		summary = tr2("金币已带到新地图，可以重新搭配本图增益。","Coins carried over. Choose fresh buffs for this map.")
+	_left_label(panel,Rect2(230,52,618,23),summary,12,ArcadeUISkin.MUTED)
+	var wallet := _panel(panel,Rect2(708,13,140,39),Color("26352e"),Color("81754f"))
+	_icon(wallet,Rect2(10,8,23,23),ArcadeUIIcon.Kind.COIN)
+	_left_label(wallet,Rect2(42,3,91,14),tr2("持有金币","WALLET"),10,ArcadeUISkin.MUTED)
+	_left_label(wallet,Rect2(42,16,91,21),str(profile.coins),17,ArcadeUISkin.CREAM)
 	for i in range(4):
 		var index := i+1
-		var state := tr2("试玩开放","Open to test") if profile.free_selection else tr2("未解锁","Locked") if index > profile.unlocked_maps else (tr2("已通关","Cleared") if profile.cleared[i] else tr2("已解锁","Unlocked"))
-		var button := _button(panel,Rect2(24+i*184,82,174,51),"%d %s\n%s" % [index,ArcadeThemes.name_for(index,language),state],func(): map_selection_changed.emit(index))
-		button.add_theme_font_size_override("font_size",15)
-		button.disabled = paused or not profile.can_visit_map(index)
-		if index == _map_selected: button.add_theme_stylebox_override("normal",_style(Color("584127"),Color("ffe0a0"),2))
+		var button := _button(panel,Rect2(14,108+i*63,182,54),"",func(): map_selection_changed.emit(index))
+		var allowed := profile.can_visit_map(index)
+		button.disabled = not allowed
+		if index == _map_selected: button.add_theme_stylebox_override("normal",ArcadeUISkin.button(Color("30443f"),accent,2))
+		_icon(button,Rect2(12,11,31,31),ArcadeUIIcon.Kind.RESOURCE,i)
+		_left_label(button,Rect2(54,5,119,25),ArcadeThemes.name_for(index,language),17,ArcadeUISkin.CREAM if allowed else ArcadeUISkin.MUTED)
+		var state := tr2("自由试玩","OPEN TO PLAY") if profile.free_selection else (tr2("已通关","CLEARED") if profile.cleared[i] else tr2("已解锁","UNLOCKED"))
+		if not allowed: state = tr2("完成前一地图解锁","CLEAR PREVIOUS MAP")
+		_left_label(button,Rect2(54,29,119,18),"%02d  %s" % [index,state],10,accent if index == _map_selected else ArcadeUISkin.MUTED)
 		map_buttons.append(button)
-	var active := _map_selected == profile.active_map
-	var room := _selected if profile.free_selection else (profile.unlocked if active and not profile.map_complete else 1)
+	var controls := _panel(panel,Rect2(14,376,182,103),Color("132333"),Color("34494e"))
+	_left_label(controls,Rect2(12,7,158,20),tr2("操作小抄","QUICK CONTROLS"),12,ArcadeUISkin.GOLD)
+	_left_label(controls,Rect2(12,33,158,19),tr2("WASD / 方向键  移动","WASD / arrows  Move"),11)
+	_left_label(controls,Rect2(12,54,158,19),tr2("左键收集 · 碰道具即用","Click items · Touch buffs"),11)
+	_left_label(controls,Rect2(12,76,158,18),tr2("ESC 暂停 · 金币永久保留","ESC pause · Keep coins"),10,ArcadeUISkin.MUTED)
+	var active_map := _map_selected == profile.active_map
+	var room := _selected if profile.free_selection else (profile.unlocked if active_map and not profile.map_complete else 1)
+	if result.has("score"):
+		_stat_card(panel,Rect2(230,83,198,68),tr2("本局得分","RUN SCORE")+tr2(" · 新纪录"," · NEW BEST") if result.get("record",false) else tr2("本局得分","RUN SCORE"),str(result.score),ArcadeUIIcon.Kind.STAR,accent)
+		_stat_card(panel,Rect2(438,83,198,68),tr2("收集数量","COLLECTED"),str(result.get("eggs",0)),ArcadeUIIcon.Kind.RESOURCE,ArcadeUISkin.CREAM)
+		_stat_card(panel,Rect2(646,83,198,68),tr2("金币入账","COINS EARNED"),"+%d" % result.get("reward",0),ArcadeUIIcon.Kind.COIN,Color("e7c66c"))
+	else:
+		_stat_card(panel,Rect2(230,83,198,68),tr2("每关时长","ROOM LENGTH"),"%ds" % round_duration,ArcadeUIIcon.Kind.CLOCK,accent)
+		_stat_card(panel,Rect2(438,83,198,68),tr2("本关最高分","ROOM BEST"),str(profile.best_for(_map_selected,room)),ArcadeUIIcon.Kind.STAR,ArcadeUISkin.CREAM)
+		_stat_card(panel,Rect2(646,83,198,68),tr2("地图最高总分","MAP BEST"),str(profile.map_best[_map_selected-1]),ArcadeUIIcon.Kind.STAR,Color("e7c66c"))
+	_left_label(panel,Rect2(230,161,320,18),tr2("选择小关","CHOOSE A ROOM"),12,ArcadeUISkin.MUTED)
 	for i in range(4):
 		var level := i+1
-		var state := tr2("已完成","Done") if active and profile.map_complete else (tr2("待进入","Next") if level == room else (tr2("已完成","Done") if active and level < profile.unlocked else tr2("未解锁","Locked")))
-		if profile.free_selection: state = tr2("已选","Selected") if level == room else tr2("试玩","Test")
-		var button := _button(panel,Rect2(24+i*184,143,174,34),"%d-%d  %s" % [_map_selected,level,state],func(): selection_changed.emit(level))
-		button.add_theme_font_size_override("font_size",14)
-		button.disabled = paused or (not profile.free_selection and (not active or profile.map_complete or level != room))
-		if profile.free_selection and level == room: button.add_theme_stylebox_override("normal",_style(Color("584127"),Color("ffe0a0"),2))
+		var name: String = [tr2("初试","FIRST STEPS"),tr2("加量","MORE TO GATHER"),tr2("丰收","HARVEST"),tr2("挑战","CHALLENGE")][i]
+		var button := _button(panel,Rect2(230+i*157,184,145,35),"%d-%d  %s" % [_map_selected,level,name],func(): selection_changed.emit(level))
+		button.add_theme_font_size_override("font_size",12 if language == "en" else 14)
+		button.disabled = not profile.free_selection and (not active_map or profile.map_complete or level != room)
+		if level == room: button.add_theme_stylebox_override("normal",ArcadeUISkin.button(Color("35483e"),accent,2))
 		room_buttons.append(button)
-	_label(panel,Rect2(18,186,740,26),tr2("金币 %d（跨图保留）　｜　本图最高总分 %d","Coins %d (keep across maps)   |   Map best %d") % [profile.coins,profile.map_best[_map_selected-1]],16)
-	var shop_enabled := not paused and profile.can_visit_map(_map_selected)
+	_left_label(panel,Rect2(230,230,250,18),tr2("本图增益","YOUR KIT FOR THIS MAP"),12,ArcadeUISkin.MUTED)
 	var names := [tr2("拾取范围","Pickup reach"),tr2("额外收获","Bonus yield"),tr2("资源窝补货","Nest refill")]
-	var details := [tr2("扩大整圈拾取的半径","Increase the whole pickup radius"),tr2("每级增加 10% 双份概率","+10% extra yield chance per level"),tr2("缩短空草窝的补货间隔","Empty nests refill sooner")]
+	var details := [tr2("整圈拾取半径更大","A larger collection ring"),tr2("每级 +10% 双份概率","+10% extra yield / level"),tr2("空窝补货间隔更短","Empty nests refill sooner")]
 	for i in range(3):
 		var index := i
-		var grade: int = profile.upgrades[i] if active and not profile.map_complete else 0
-		var price := profile.cost(i) if active and not profile.map_complete else ArcadeProfile.COSTS[0]
-		_label(panel,Rect2(20+i*248,220,240,25),"%s  Lv.%d" % [names[i],grade],16)
-		_label(panel,Rect2(20+i*248,247,240,22),details[i],12)
-		var button := _button(panel,Rect2(28+i*248,276,224,32),tr2("已满级","MAX") if price < 0 else tr2("升级 · %d 币","Upgrade · %d coins") % price,func(): upgrade_requested.emit(index))
-		button.disabled = not shop_enabled or price < 0 or profile.coins < price
+		var grade: int = profile.upgrades[i] if active_map and not profile.map_complete else 0
+		var price := profile.cost(i) if active_map and not profile.map_complete else ArcadeProfile.COSTS[0]
+		var card := _panel(panel,Rect2(230+i*208,253,198,94),ArcadeUISkin.CARD,Color("42585b"))
+		_icon(card,Rect2(9,9,27,27),[ArcadeUIIcon.Kind.RANGE,ArcadeUIIcon.Kind.YIELD,ArcadeUIIcon.Kind.REFILL][i])
+		_left_label(card,Rect2(43,7,113,24),names[i],14)
+		_label(card,Rect2(155,9,37,20),"%d/5" % grade,11)
+		_left_label(card,Rect2(12,34,180,18),details[i],11,ArcadeUISkin.MUTED)
+		var button := _button(card,Rect2(10,59,178,27),tr2("已满级","MAX LEVEL") if price < 0 else tr2("升级  %d 币","UPGRADE  %d") % price,func(): upgrade_requested.emit(index))
+		button.add_theme_font_size_override("font_size",12)
+		button.disabled = not profile.can_visit_map(_map_selected) or price < 0 or profile.coins < price
+		button.tooltip_text = tr2("本图四个小关内有效；进入新地图时重置。","Lasts for this map's four rooms. Resets on map entry.")
+		if price > profile.coins: button.tooltip_text = tr2("还差 %d 枚金币","Need %d more coins") % (price-profile.coins)
 		upgrade_buttons.append(button)
-	_label(panel,Rect2(18,320,740,43),tr2("WASD 移动 · 点击圈内物品收整圈 · Esc 暂停\n每小关 60 秒；鸡舍 2～4 关有蛇蛋，捡到后侧移躲开。","WASD move · Click an item to gather the ring · Esc pause\n60s per room. Chicken rooms 2–4 hide snake eggs: sidestep the dash."),14)
-	menu_save_help = _label(panel,Rect2(18,368,740,22),tr2("金币保留｜换图出发或购买新图增益时，旧图增益归零；开始只需点一次","Keep coins. Starting/buying in a new map resets buffs. Start needs one click."),12)
-	menu_storage_label = _label(panel,Rect2(18,367,740,48),"",12)
+	_left_label(panel,Rect2(230,355,618,18),tr2("散落道具 · 碰到即用","SCATTERED POWERUPS · TOUCH TO USE"),12,ArcadeUISkin.MUTED)
+	var pool := ArcadePowerup.available_for(_map_selected,room)
+	for i in range(3):
+		var unlocked := pool.has(i)
+		var card := _panel(panel,Rect2(230+i*208,378,198,33),Color("132536"),Color("354c53"))
+		var icon := _powerup_icon(card,i,Rect2(6,3,28,26))
+		icon.modulate.a = 1.0 if unlocked else 0.3
+		var caption := ArcadePowerup.name_for(i,language) if unlocked else ArcadePowerup.unlock_caption(i,language)
+		var label := _left_label(card,Rect2(43,3,150,27),caption,13,ArcadeUISkin.CREAM if unlocked else ArcadeUISkin.MUTED)
+		label.mouse_filter = Control.MOUSE_FILTER_PASS
+		label.tooltip_text = ArcadePowerup.description_for(i,language) if unlocked else "%s · %s" % [ArcadePowerup.name_for(i,language),ArcadePowerup.unlock_caption(i,language)]
+	menu_save_help = _left_label(panel,Rect2(230,417,618,18),tr2("金币跨图保留 · 购买增益仅在本图有效","Keep coins across maps · Purchased buffs last for this map"),11,ArcadeUISkin.MUTED)
+	menu_storage_label = _left_label(panel,Rect2(230,413,618,29),"",10,Color("ffd38a"))
 	menu_storage_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	menu_storage_label.add_theme_color_override("font_color",Color("ffd38a"))
 	update_storage_status(profile)
-	var caption := tr2("继续游戏","Resume") if paused else (tr2("出发：%d-%d · %d 秒","Play %d-%d · %d seconds") % [_map_selected,room,round_duration] if active and not profile.map_complete else tr2("进入 %s · 金币保留，增益归零","Enter %s · keep coins, reset buffs") % ArcadeThemes.name_for(_map_selected,language))
-	if profile.free_selection and not paused: caption = tr2("试玩：%d-%d · 60 秒","Playtest %d-%d · 60 seconds") % [_map_selected,room]
-	primary_button = _button(panel,Rect2(24,423,500,44),caption,func():
-		if _paused: pause_requested.emit()
-		else: start_requested.emit(room,_map_selected))
-	primary_button.add_theme_stylebox_override("normal",_style(Color("6e4d24"),Color("ffe0a0"),2))
-	primary_button.add_theme_font_size_override("font_size",15)
-	_button(panel,Rect2(538,423,94,44),"中文" if language == "en" else "English",func():
+	var caption := tr2("出发  %d-%d  ·  %d秒","PLAY  %d-%d  ·  %ds") % [_map_selected,room,round_duration]
+	primary_button = _button(panel,Rect2(230,446,390,34),caption,func(): start_requested.emit(room,_map_selected))
+	primary_button.add_theme_stylebox_override("normal",ArcadeUISkin.button(Color("77552d"),Color("edc67e"),2))
+	_button(panel,Rect2(632,446,92,34),"中文" if language == "en" else "English",func():
 		language = "zh" if language == "en" else "en"
-		show_menu(_profile,_selected,_result,_paused,_map_selected))
-	if paused: _button(panel,Rect2(646,423,106,44),tr2("回菜单","Menu"),func(): abandon_requested.emit())
-	else:
-		var restart := _button(panel,Rect2(646,423,106,44),tr2("重开此图\n增益清零","Restart map\nreset buffs"),func(): restart_requested.emit(_map_selected))
-		restart.add_theme_font_size_override("font_size",12)
-		restart.disabled = not active
+		show_menu(_profile,_selected,_result,false,_map_selected))
+	var restart := _button(panel,Rect2(736,446,110,34),tr2("重开此图","RESTART MAP"),func(): restart_requested.emit(_map_selected))
+	restart.add_theme_font_size_override("font_size",12)
+	restart.tooltip_text = tr2("金币保留，本图增益与关卡进度归零。","Keep coins; reset this map's buffs and run progress.")
+	restart.disabled = not active_map
 	primary_button.grab_focus()
+
+func _show_pause_card(profile: ArcadeProfile) -> void:
+	var panel := _panel(overlay,Rect2(254,83,452,374),ArcadeUISkin.PANEL,ArcadeUISkin.GOLD)
+	_icon(panel,Rect2(204,22,44,44),ArcadeUIIcon.Kind.PAUSE)
+	_label(panel,Rect2(24,75,404,37),tr2("歇一会儿","TAKE A BREATHER"),27)
+	_label(panel,Rect2(24,116,404,23),tr2("时间已暂停，收获还在袋子里。","Time is paused. Your harvest is safe."),14)
+	_stat_card(panel,Rect2(26,153,195,66),tr2("当前得分","CURRENT SCORE"),str(_last_score),ArcadeUIIcon.Kind.STAR,ArcadeUISkin.GOLD)
+	_stat_card(panel,Rect2(231,153,195,66),tr2("剩余时间","TIME LEFT"),"%ds" % ceili(_seconds_left),ArcadeUIIcon.Kind.CLOCK,Color("90c9c1"))
+	menu_save_help = _label(panel,Rect2(26,231,400,22),tr2("WASD 移动 · 左键收集 · 碰道具即用","WASD move · Click items · Touch powerups"),12)
+	menu_storage_label = _label(panel,Rect2(26,228,400,37),"",10)
+	menu_storage_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	update_storage_status(profile)
+	primary_button = _button(panel,Rect2(26,275,400,38),tr2("继续收获  ·  ESC","KEEP GATHERING  ·  ESC"),func(): pause_requested.emit())
+	primary_button.add_theme_stylebox_override("normal",ArcadeUISkin.button(Color("77552d"),ArcadeUISkin.GOLD,2))
+	_button(panel,Rect2(26,326,192,30),"中文" if language == "en" else "English",func():
+		language = "zh" if language == "en" else "en"
+		show_menu(_profile,_selected,{},true,_map_selected))
+	_button(panel,Rect2(230,326,196,30),tr2("返回菜单","BACK TO MENU"),func(): abandon_requested.emit()).tooltip_text = tr2("退出当前小关，本局未结算收获不会入账。","Leave this room. Unsettled harvest will not be added to your wallet.")
+	primary_button.grab_focus()
+
 
 func show_transition(map_index: int, level: int) -> void:
 	if not is_instance_valid(transition_screen):
@@ -362,6 +611,12 @@ func show_transition(map_index: int, level: int) -> void:
 		transition_screen.remove_child(child)
 		child.queue_free()
 	transition_screen.show()
+	var chapter := _label(transition_screen,Rect2(250,73,460,24),"NIGHT FARM / CHAPTER %02d" % map_index,12)
+	chapter.add_theme_font_override("font",PIXEL)
+	chapter.add_theme_color_override("font_color",ArcadeUISkin.ACCENTS[map_index-1])
+	for i in range(4):
+		var card := _panel(transition_screen,Rect2(316+i*86,112,70,6),ArcadeUISkin.ACCENTS[map_index-1] if i < level else Color("293a43"),Color("394c53"))
+		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_label(transition_screen,Rect2(140,145,680,60),ArcadeThemes.name_for(map_index,language),42)
 	_label(transition_screen,Rect2(140,217,680,42),tr2("第 %d-%d 小关","ROOM %d-%d") % [map_index,level],25)
 	var snake_room := map_index == 1 and level >= 2
@@ -388,8 +643,13 @@ func hide_transition() -> void:
 
 func hide_menu() -> void:
 	overlay.hide()
+	hud_root.show()
+	_running = true
 	pause_button.show()
 
 func update_danger(level: float, seen: bool, farmer_present: bool) -> void:
-	danger_label.text = tr2("农夫正在追赶！","Farmer chasing!") if farmer_present else tr2("警戒 %d / 100","Alert %d / 100") % floori(level)
+	hud_chrome.danger_value = clampf(level,0,100)
+	hud_chrome.farmer_present = farmer_present
+	hud_chrome.queue_redraw()
+	danger_label.text = tr2("农夫追赶中 · 绕到掩体后！","FARMER CHASING · BREAK SIGHT!") if farmer_present else (tr2("被发现！警戒 %d / 100","SPOTTED · ALERT %d / 100") % floori(level) if seen else tr2("警戒 %d / 100","ALERT %d / 100") % floori(level))
 	danger_label.add_theme_color_override("font_color",Color("ff8b72") if seen or farmer_present else Color("ffe5ad"))

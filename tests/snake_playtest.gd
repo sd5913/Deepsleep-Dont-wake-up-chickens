@@ -21,6 +21,7 @@ func run() -> void:
 	root.size = Vector2i(960,540)
 	var game: ArcadeGame = load("res://scenes/arcade/game.tscn").instantiate()
 	game.profile = ArcadeProfile.new()
+	game.profile.powerup_tutorials = [true,true,true]
 	game.profile.save_path = SAVE
 	game.profile.coins = 100
 	game.guards_enabled = false

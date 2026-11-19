@@ -43,6 +43,8 @@ var last_result := {}
 var alert: CoopAlert
 var farmer: ArcadeFarmer
 var pickup_circle: Node2D
+var powerups: ArcadePowerups
+var _powerup_intro_kind := -1
 var _farmer_warning := 0.0
 var _farmer_armed := true
 var _farmer_cooldown_left := 0.0
@@ -86,6 +88,7 @@ func _ready() -> void:
 	ui.abandon_requested.connect(abandon_round)
 	ui.selection_changed.connect(_select_level)
 	ui.upgrade_requested.connect(_buy_upgrade)
+	ui.powerup_guide_closed.connect(_close_powerup_guide)
 	audio = AUDIO.instantiate()
 	add_child(audio)
 	# Audio is intentionally off for this iteration.
@@ -160,6 +163,8 @@ func _build_world(level: int) -> void:
 	nests.clear()
 	hens.clear()
 	snakes.clear()
+	powerups = null
+	_powerup_intro_kind = -1
 	farmer = null
 	_was_seen = false
 	_detection_cooldown = 0.0
@@ -210,6 +215,9 @@ func _build_world(level: int) -> void:
 	for i in range(stage_settings.animals): _add_hen(false)
 	_spawn_batch(18+level*14)
 	_seed_snake_eggs()
+	powerups = ArcadePowerups.new()
+	powerups.setup(world,player,profile,current_map,current_level,camera.zoom.x)
+	powerups.picked_up.connect(_on_powerup_collected)
 
 func begin_round(level: int, map_index := 0) -> void:
 	if running: return
@@ -236,6 +244,7 @@ func begin_round(level: int, map_index := 0) -> void:
 	last_result = {}
 	_last_seconds_announced = false
 	running = true
+	powerups.seed_initial()
 	ui._map_selected = current_map
 	ui.hide_menu()
 	ui.announce("开局保护 3 秒，先移动到合适的位置！","3 seconds of protection. Find a good starting position!")
@@ -250,6 +259,11 @@ func _process(delta: float) -> void:
 	protection_left = maxf(0.0,protection_left-delta)
 	snake_immunity_left = maxf(0.0,snake_immunity_left-delta)
 	player.invulnerable = protection_left > 0.0 or snake_immunity_left > 0.0
+	powerups.advance(delta)
+	if _maybe_show_powerup_guide(): return
+	powerups.collect_touching()
+	pickup_circle.radius = pickup_radius()
+	pickup_circle.queue_redraw()
 	_update_guards(delta)
 	if not running: return
 	_update_shake(delta)
@@ -291,8 +305,7 @@ func collect_at(point: Vector2) -> bool:
 	if not running or get_tree().paused: return false
 	var target := _pickup_target_at(point)
 	if target is ArcadeEgg:
-		var closest: ArcadeEgg = target
-		if not can_collect_point(closest.position):
+		if not can_collect_point(target.position):
 			ui.announce("只能收集身边的物品；被木箱挡住时请绕过去。","Move closer; crates can block a pickup.")
 			return false
 		# The player's ring is the collection area, regardless of the clicked egg.
@@ -311,8 +324,8 @@ func collect_at(point: Vector2) -> bool:
 	return false
 
 func _pickup_target_at(point: Vector2) -> Node2D:
-	var closest: ArcadeEgg
-	var reachable: ArcadeEgg
+	var closest: Node2D
+	var reachable: Node2D
 	var distance := pow(24.0/camera.zoom.x,2)
 	var reachable_distance := distance
 	for egg in eggs:
@@ -346,7 +359,46 @@ func _update_pickup_feedback(point: Vector2) -> void:
 func _clear_pickup_feedback() -> void:
 	for egg in eggs: egg.highlighted = false
 	for nest in nests: nest.highlighted = false
+	if powerups != null:
+		for drop in powerups.drops: drop.highlighted = false
 	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+
+func _on_powerup_collected(kind: int) -> void:
+	ui.show_powerup_pickup(kind)
+	pickup_circle.radius = pickup_radius()
+	pickup_circle.queue_redraw()
+	if kind == ArcadePowerup.Kind.STEALTH:
+		_was_seen = false
+		for hen in hens:
+			hen.sees_player = false
+			hen.take_alarm()
+		if is_instance_valid(farmer): farmer.sees_player = false
+	_update_hud()
+
+func _maybe_show_powerup_guide() -> bool:
+	if _powerup_intro_kind >= 0: return true
+	for drop in powerups.drops:
+		if not profile.powerup_tutorials[drop.kind] and powerups.touching(drop):
+			_powerup_intro_kind = drop.kind
+			get_tree().paused = true
+			camera.offset = Vector2.ZERO
+			_clear_pickup_feedback()
+			ui.show_powerup_guide(drop.kind)
+			_update_hud()
+			return true
+	return false
+
+func _close_powerup_guide() -> void:
+	if _powerup_intro_kind < 0: return
+	profile.powerup_tutorials[_powerup_intro_kind] = true
+	profile.save_progress()
+	_powerup_intro_kind = -1
+	ui.hide_powerup_guide()
+	get_tree().paused = false
+	powerups.collect_touching()
+	pickup_circle.radius = pickup_radius()
+	pickup_circle.queue_redraw()
+	_update_hud()
 
 func _collect_egg(egg: ArcadeEgg) -> void:
 	if egg.claimed or not eggs.has(egg) or not can_collect_point(egg.position): return
@@ -420,7 +472,7 @@ func _award(point: Vector2, gold: bool) -> void:
 	_update_hud()
 
 func multiplier() -> int:
-	return 1 + mini(3,chain/12)
+	return (1 + mini(3,chain/12)) * (powerups.score_factor() if powerups != null else 1)
 
 func _add_hen(gold: bool) -> void:
 	if gold and current_map == 3: return
@@ -448,7 +500,7 @@ func _add_hen(gold: bool) -> void:
 	hen.egg_laid.connect(_spawn_egg_at)
 
 func pickup_radius() -> float:
-	return base_pickup_radius + _buffs()[0]*4.0
+	return (base_pickup_radius + _buffs()[0]*4.0) * (powerups.radius_factor() if powerups != null else 1.0)
 
 func _buffs() -> Array:
 	return profile.upgrades if current_map == profile.active_map and not profile.map_complete else [0,0,0]
@@ -471,9 +523,10 @@ func _update_guards(delta: float) -> void:
 	var seen := 0
 	var clucks := 0
 	for hen in hens:
-		if hen.sees_player: seen += 1
-		if hen.take_alarm(): clucks += 1
-	var detected := seen > 0 or (is_instance_valid(farmer) and farmer.sees_player)
+		if hen.sees_player and not player.concealed: seen += 1
+		if hen.take_alarm() and not player.concealed: clucks += 1
+	var farmer_sees := is_instance_valid(farmer) and farmer.sees_player and not player.concealed
+	var detected := seen > 0 or farmer_sees
 	if detected and not _was_seen and _detection_cooldown == 0.0:
 		_start_shake(4.0,0.28)
 		ui.show_reaction("！被发现了！","! SPOTTED!",0.9)
@@ -481,7 +534,7 @@ func _update_guards(delta: float) -> void:
 		_detection_cooldown = 1.2
 	_was_seen = detected
 	if seen > 0: _reported_position = player.position
-	alert.advance(delta,seen,clucks,is_instance_valid(farmer) and farmer.sees_player)
+	alert.advance(delta,seen,clucks,farmer_sees)
 	ui.update_danger(alert.level,seen > 0,is_instance_valid(farmer) and not farmer.leaving)
 	if is_instance_valid(farmer): return
 	if _farmer_cooldown_left > 0.0: return
@@ -567,6 +620,9 @@ func _spawn_egg_at(point: Vector2, gold: bool) -> void:
 
 func toggle_pause() -> void:
 	if not running: return
+	if _powerup_intro_kind >= 0:
+		_close_powerup_guide()
+		return
 	get_tree().paused = not get_tree().paused
 	if get_tree().paused: camera.offset = Vector2.ZERO
 	_clear_pickup_feedback()
@@ -574,6 +630,7 @@ func toggle_pause() -> void:
 	else: ui.hide_menu()
 
 func abandon_round() -> void:
+	_end_powerups()
 	_reset_shake()
 	_clear_pickup_feedback()
 	get_tree().paused = false
@@ -583,6 +640,7 @@ func abandon_round() -> void:
 
 func finish_round(caught := false) -> void:
 	if not running: return
+	_end_powerups()
 	_reset_shake()
 	_clear_pickup_feedback()
 	running = false
@@ -599,7 +657,16 @@ func finish_round(caught := false) -> void:
 func _update_hud() -> void:
 	if is_instance_valid(ui):
 		ui.update_game(score,collected,chain,multiplier(),combo_left,time_left,current_level)
+		if powerups != null: ui.update_powerups(powerups.active,running)
 		if is_instance_valid(player): ui.update_actor_feedback(get_canvas_transform()*player.position,60.0*camera.zoom.x,protection_left)
+
+func _end_powerups() -> void:
+	_powerup_intro_kind = -1
+	ui.hide_powerup_guide()
+	if powerups != null: powerups.clear()
+	if is_instance_valid(pickup_circle):
+		pickup_circle.radius = pickup_radius()
+		pickup_circle.queue_redraw()
 
 func _start_shake(strength: float, seconds: float) -> void:
 	_shake_strength = maxf(_shake_strength,strength)
