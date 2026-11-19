@@ -22,6 +22,8 @@ func run() -> void:
 	game.profile = ArcadeProfile.new()
 	game.profile.save_path = SAVE
 	game.profile.coins = 100
+	# This regression exercises escape rather than first-encounter modal teaching.
+	game.profile.powerup_tutorials = [true,true,true]
 	game.use_fixed_seed = true
 	game.guards_enabled = false
 	root.add_child(game)

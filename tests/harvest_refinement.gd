@@ -24,6 +24,7 @@ func run() -> void:
 			expect(start.pressure > ArcadeDifficulty.for_stage(map_index-1,1).pressure and start.pressure < ArcadeDifficulty.for_stage(map_index-1,4).pressure,"A new chapter must start above the previous start but below its finale")
 	var game: ArcadeGame = load("res://scenes/arcade/game.tscn").instantiate()
 	game.profile = ArcadeProfile.new()
+	game.profile.powerup_tutorials = [true,true,true]
 	game.profile.save_path = SAVE
 	game.use_fixed_seed = true
 	game.guards_enabled = false

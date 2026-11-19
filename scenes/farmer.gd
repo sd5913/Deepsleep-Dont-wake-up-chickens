@@ -35,7 +35,7 @@ func _physics_process(delta: float) -> void:
 	var previous_position := position
 	var distance := global_position.distance_to(player.global_position)
 	# The same clear ray is required for pursuit and capture.
-	sees_player = not player.invulnerable and distance <= vision_distance and _has_clear_sight(player.global_position)
+	sees_player = not player.invulnerable and not player.concealed and distance <= vision_distance and _has_clear_sight(player.global_position)
 	if sees_player:
 		last_known_position = player.global_position
 		_search_index = -1

@@ -14,6 +14,7 @@ var map_best := [0,0,0,0]
 var cleared := [false,false,false,false]
 var run_scores := [0,0,0,0]
 var upgrades := [0,0,0]
+var powerup_tutorials := [false,false,false]
 var save_path := "user://coop-rush-v1.json"
 var browser_key := "coop-rush-v1"
 var saved := true
@@ -56,6 +57,9 @@ func load_progress() -> void:
 		var values = data.get("cleared")
 		if values is Array:
 			for i in range(mini(values.size(),4)): cleared[i] = values[i] == true
+		var tutorials = data.get("powerup_tutorials")
+		if tutorials is Array:
+			for i in range(mini(tutorials.size(),3)): powerup_tutorials[i] = tutorials[i] == true
 
 func _read_storage() -> Dictionary:
 	if OS.has_feature("web"):
@@ -114,7 +118,7 @@ func save_progress() -> bool:
 		saved = false
 		storage_status_changed.emit()
 		return false
-	var raw := JSON.stringify({"version":2,"coins":coins,"active_map":active_map,"unlocked_maps":unlocked_maps,"unlocked":unlocked,"map_complete":map_complete,"best":best,"map_best":map_best,"cleared":cleared,"run_scores":run_scores,"upgrades":upgrades})
+	var raw := JSON.stringify({"version":2,"coins":coins,"active_map":active_map,"unlocked_maps":unlocked_maps,"unlocked":unlocked,"map_complete":map_complete,"best":best,"map_best":map_best,"cleared":cleared,"run_scores":run_scores,"upgrades":upgrades,"powerup_tutorials":powerup_tutorials})
 	if OS.has_feature("web"):
 		var ok: bool = JavaScriptBridge.eval("(()=>{try{localStorage.setItem("+JSON.stringify(browser_key)+","+JSON.stringify(raw)+");return true}catch(e){return false}})()") == true
 		_set_storage_issue("" if ok else "write")

@@ -13,7 +13,11 @@ A pixel-art browser collection game with **4 maps × 4 rooms = 16 stages**. Coll
 - **Permanent wallet, map-local buffs:** five points earn one coin. Coins survive changing maps, restarting maps and reloading. Gather radius, bonus yield and nest refill accumulate across a map’s four rooms; entering another map or restarting resets only buffs and that run. The menu allows buying buffs for the selected map before starting. One Start click plays its transition and launches the room directly.
 - **Progress and transitions:** room records, map totals and unlocks are saved in this browser. One-second walking transitions consume no round time. Unsettled rooms restart after leaving. Legacy saves retain coins, buffs and the original first-map progress. Saves do not sync across devices.
 
+[Play in your browser](https://night-coop-play-7k2.limberpetunia4.chatgpt.site)
+
 ## Run and check
+
+The UI now uses a map sidebar, room buttons, upgrade cards and a three-part harvest settlement. A segmented alert meter, urgent final-ten-second timer, compact actor-side buff meters and a dedicated pause card share the navy/gold pixel style. Score uses a star icon; currency uses coins. See [UI_DESIGN.md](UI_DESIGN.md). Native Chinese/English captures were inspected; browser playtesting remains pending.
 
 Use **Godot 4.5.1 Standard** with matching export templates, Compatibility rendering and a 960×540 design viewport. Import `project.godot` and press F5. The entry scene is `scenes/arcade/game.tscn`; the original stealth scene remains at `game.tscn` for reference.
 
@@ -31,7 +35,7 @@ Hens retain the original occluded sight cones and obstacle-aware patrols, now at
 
 Pacing pass: stage one has four patrolling hens, followed by one additional ordinary hen per stage. The halved pickup diameter uses a soft, hollow pale-yellow halo instead of dashes. Reachable hovered targets highlight; up/down movement uses four-frame front/back runs, including during pickups. The final ten seconds receive a visual cue. Golden hens arrive at 30 seconds, with the second stage-four hen at 45 seconds.
 
-Combo feedback follows the player rather than occupying the top HUD. Every fifth pickup triggers a short scaling pop, golden sparks and encouragement. Future scattered powerups are designed in [ITEM_DESIGN.md](ITEM_DESIGN.md); they are not implemented yet.
+Combo feedback follows the player rather than occupying the top HUD. Every fifth pickup triggers a short scaling pop, golden sparks and encouragement. Powerups unlock at 1-2 (Double Badge: 2x score for 6s), 2-1 (Big Basket: +35% pickup radius for 6s), and 3-1 (Stealth Shield: unseen for 4s, without snake damage immunity). Earlier types remain available in later maps. Each eligible room starts with all 3–4 powerups scattered at least 160 screen pixels apart; there are no adjacent pairs or delayed spawn waves. Touch a powerup to activate it automatically; ordinary resources still require left-clicks. First contact pauses for an illustrated explanation; acknowledgement activates the full duration and is saved. Timers follow the player. See [ITEM_DESIGN.md](ITEM_DESIGN.md) and `tests/powerups.gd`. This update is for the playable website; Browser playtesting remains pending.
 
 Snake eggs are implemented in chicken rooms 2–4. See [GAME_FRAMEWORK.md](GAME_FRAMEWORK.md) and [VISUAL_PLAN.md](VISUAL_PLAN.md).
 

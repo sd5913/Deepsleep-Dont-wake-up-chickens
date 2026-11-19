@@ -6,6 +6,7 @@ extends CharacterBody2D
 var movement_locked := false
 var searching := false
 var invulnerable := false
+var concealed := false
 var _facing := Vector2.UP
 var _toss_left := 0.0
 var _startle_left := 0.0
@@ -20,7 +21,7 @@ func aim_direction() -> Vector2:
 
 
 func _physics_process(delta: float) -> void:
-	_art.modulate = Color(0.72,0.94,1.0) if invulnerable else Color.WHITE
+	_art.modulate = Color(0.65,0.92,1.0,0.58) if concealed else (Color(0.72,0.94,1.0) if invulnerable else Color.WHITE)
 	_search_glow.visible = searching
 	_toss_left = maxf(0.0, _toss_left - delta)
 	_startle_left = maxf(0.0,_startle_left-delta)
