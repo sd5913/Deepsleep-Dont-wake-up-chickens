@@ -19,12 +19,13 @@ func _draw() -> void:
 		Kind.RESOURCE:
 			ArcadeEgg.paint_resource(self,Vector2.ZERO,1.15,false,theme_index)
 		Kind.COIN:
-			draw_rect(Rect2(-8,-13,16,26),shade)
-			draw_rect(Rect2(-12,-9,24,18),shade)
-			draw_rect(Rect2(-8,-11,16,22),gold)
-			draw_rect(Rect2(-10,-7,20,14),gold)
-			draw_rect(Rect2(-6,-9,3,15),light)
-			draw_rect(Rect2(1,-6,3,12),shade)
+			var coin_shade := Color("80502d")
+			draw_rect(Rect2(-8,-13,16,26),coin_shade)
+			draw_rect(Rect2(-12,-9,24,18),coin_shade)
+			draw_rect(Rect2(-8,-11,16,22),ArcadeUISkin.GOLD)
+			draw_rect(Rect2(-10,-7,20,14),ArcadeUISkin.GOLD)
+			draw_rect(Rect2(-6,-9,3,15),ArcadeUISkin.CREAM)
+			draw_rect(Rect2(1,-6,3,12),coin_shade)
 		Kind.RANGE:
 			for x in [-12,6]:
 				for y in [-12,6]:

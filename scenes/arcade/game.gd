@@ -297,6 +297,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if not running or get_tree().paused: return
+	if event is InputEventKey and event.keycode == KEY_SPACE and event.pressed and not event.echo:
+		var qte_result := ui.try_alert_qte()
+		if qte_result >= 0:
+			if qte_result == 1:
+				alert.level = maxf(alert.level-25.0,0.0)
+				ui.show_reaction("时机正好！警戒下降","NICE TIMING! ALERT DOWN",0.75)
+			ui.update_danger(alert.level,_was_seen,is_instance_valid(farmer) and not farmer.leaving)
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		collect_at(get_canvas_transform().affine_inverse() * event.position)
 		get_viewport().set_input_as_handled()

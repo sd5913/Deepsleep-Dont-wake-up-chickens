@@ -45,6 +45,8 @@ var reaction_marker: Label
 var _reaction_left := 0.0
 var _reaction_age := 0.0
 var danger_label: Label
+var _qte_feedback_left := 0.0
+var _qte_feedback_result := 0
 var storage_notice: Panel
 var storage_label: Label
 var menu_storage_label: Label
@@ -96,13 +98,13 @@ func _ready() -> void:
 	hud_chrome = Control.new()
 	hud_chrome.set_script(preload("res://scenes/arcade/ui_chrome.gd"))
 	hud_root.add_child(hud_chrome)
-	_icon(hud_root,Rect2(24,24,28,28),ArcadeUIIcon.Kind.STAR)
-	score_title = _left_label(hud_root,Rect2(61,15,130,16),tr2("本局得分","SCORE"),11,ArcadeUISkin.MUTED)
-	score_label = _left_label(hud_root,Rect2(61,31,130,26),"0",21)
+	_icon(hud_root,Rect2(106,22,32,32),ArcadeUIIcon.Kind.STAR)
+	score_title = _left_label(hud_root,Rect2(145,15,130,16),tr2("本局得分","SCORE"),11,ArcadeUISkin.MUTED)
+	score_label = _left_label(hud_root,Rect2(145,31,130,26),"0",21)
 	score_label.add_theme_font_override("font",PIXEL)
 	score_label.pivot_offset = Vector2(0,13)
 	danger_label = _label(hud_root,Rect2(310,15,340,22),"",12)
-	_icon(hud_root,Rect2(809,25,27,27),ArcadeUIIcon.Kind.CLOCK)
+	_icon(hud_root,Rect2(806,22,32,32),ArcadeUIIcon.Kind.CLOCK)
 	clock_title = _left_label(hud_root,Rect2(843,15,98,16),tr2("剩余时间","TIME LEFT"),10,ArcadeUISkin.MUTED)
 	time_label = _left_label(hud_root,Rect2(843,32,98,25),"1:00",18)
 	time_label.add_theme_font_override("font",PIXEL)
@@ -134,7 +136,7 @@ func _ready() -> void:
 	reaction_marker.add_theme_color_override("font_outline_color",Color("412330"))
 	reaction_marker.add_theme_constant_override("outline_size",6)
 	reaction_marker.hide()
-	item_icon = _icon(hud_root,Rect2(24,497,26,26),ArcadeUIIcon.Kind.RESOURCE)
+	item_icon = _icon(hud_root,Rect2(22,495,30,30),ArcadeUIIcon.Kind.RESOURCE)
 	item_title = _left_label(hud_root,Rect2(59,489,110,16),"",10,ArcadeUISkin.MUTED)
 	egg_label = _left_label(hud_root,Rect2(59,505,110,22),"0",17)
 	stage_label = _label(hud_root,Rect2(786,493,154,30),"",14)
@@ -150,15 +152,18 @@ func _ready() -> void:
 	combo_bar.add_theme_stylebox_override("background",_style(Color("0c1326"),Color("453520"),0))
 	combo_anchor.add_child(combo_bar)
 	combo_bar.size = Vector2(90,4)
-	toast_panel = _panel(hud_root,Rect2(190,70,580,44),Color(0.04,0.08,0.13,0.94),Color("847856"))
+	toast_panel = _panel(hud_root,Rect2(190,70,580,48),ArcadeUISkin.PANEL,ArcadeUISkin.GOLD)
 	toast_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	toast = _label(toast_panel,Rect2(12,4,556,36),"",14)
+	toast = _label(toast_panel,Rect2(12,4,556,40),"",14)
 	toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	toast.add_theme_color_override("font_outline_color",Color("172033"))
-	toast.add_theme_constant_override("outline_size",4)
-	pause_button = _button(hud_root,Rect2(886,68,60,26),"ESC",func(): pause_requested.emit())
-	pause_button.add_theme_font_override("font",PIXEL)
-	pause_button.add_theme_font_size_override("font_size",10)
+	pause_button = _button(hud_root,Rect2(14,12,72,48),"ESC",func(): pause_requested.emit())
+	pause_button.add_theme_stylebox_override("normal",ArcadeUISkin.box(ArcadeUISkin.PANEL,ArcadeUISkin.GOLD,2))
+	pause_button.add_theme_stylebox_override("hover",ArcadeUISkin.box(Color("1b3043"),ArcadeUISkin.GOLD,2))
+	pause_button.add_theme_stylebox_override("pressed",ArcadeUISkin.box(Color("0b1726"),Color("c99a56"),2))
+	pause_button.add_theme_stylebox_override("disabled",ArcadeUISkin.box(Color("101e30"),Color("49515a"),2))
+	pause_button.add_theme_color_override("font_color",ArcadeUISkin.CREAM)
+	pause_button.add_theme_color_override("font_hover_color",ArcadeUISkin.CREAM)
+	pause_button.add_theme_color_override("font_pressed_color",ArcadeUISkin.CREAM)
 	overlay = ColorRect.new()
 	overlay.color = Color(0.015,0.025,0.055,0.84)
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -167,7 +172,7 @@ func _ready() -> void:
 	storage_notice.position = Vector2(210,96)
 	storage_notice.size = Vector2(540,44)
 	storage_notice.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	storage_notice.add_theme_stylebox_override("panel",_style(Color("172137"),Color("d6ac64"),1))
+	storage_notice.add_theme_stylebox_override("panel",_style(ArcadeUISkin.PANEL,ArcadeUISkin.GOLD,1))
 	screen.add_child(storage_notice)
 	storage_label = _label(storage_notice,Rect2(8,3,524,38),"",13)
 	storage_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -197,8 +202,8 @@ func _build_powerup_feedback() -> void:
 		tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile.add_theme_stylebox_override("panel",_style(Color(0.04,0.08,0.15,0.92),ArcadePowerup.COLORS[i]))
 		powerup_bar.add_child(tile)
-		_powerup_icon(tile,i,Rect2(4,3,24,23))
-		powerup_timers.append(_label(tile,Rect2(30,3,27,23),"",12))
+		_powerup_icon(tile,i,Rect2(2,3,28,26))
+		powerup_timers.append(_label(tile,Rect2(32,3,25,23),"",12))
 		var gauge := ProgressBar.new()
 		gauge.position = Vector2(4,27)
 		gauge.size = Vector2(52,3)
@@ -256,7 +261,7 @@ func show_powerup_guide(kind: int) -> void:
 	powerup_guide.add_child(panel)
 	_label(panel,Rect2(20,12,520,30),tr2("发现新道具！","NEW POWERUP!"),20)
 	var icon_well := _panel(panel,Rect2(220,48,120,106),Color("203735"),Color("5b7467"))
-	_powerup_icon(icon_well,kind,Rect2(11,6,98,91))
+	_powerup_icon(icon_well,kind,Rect2(8,5,104,96))
 	var duration := _panel(panel,Rect2(355,84,74,31),Color("273933"),ArcadePowerup.COLORS[kind])
 	_label(duration,Rect2(0,0,74,31),tr2("%d秒","%ds") % int(ArcadePowerup.DURATIONS[kind]),17)
 	_label(panel,Rect2(20,158,520,34),ArcadePowerup.name_for(kind,language),26)
@@ -265,8 +270,8 @@ func show_powerup_guide(kind: int) -> void:
 	var extra := tr2("这是隐匿，不会挡住小蛇；已有警戒仍会保留。","Stealth does not block snakes or erase existing alert.") if kind == ArcadePowerup.Kind.STEALTH else tr2("同种刷新时间，不同道具可以一起生效。","Same kind refreshes its timer; different kinds combine.")
 	_label(panel,Rect2(20,246,520,22),extra,12)
 	_label(panel,Rect2(20,273,520,22),tr2("碰到道具自动生效 · 倒计时已暂停","Touch to activate automatically · Timer paused"),14)
-	powerup_guide_button = _button(panel,Rect2(142,308,276,34),tr2("知道了，试试看！","GOT IT · LET'S TRY!"),func(): powerup_guide_closed.emit())
-	powerup_guide_button.add_theme_stylebox_override("normal",ArcadeUISkin.button(Color("4a6450"),ArcadePowerup.COLORS[kind],2))
+	powerup_guide_button = _button(panel,Rect2(142,308,276,48),tr2("知道了，试试看！","GOT IT · LET'S TRY!"),func(): powerup_guide_closed.emit())
+	powerup_guide_button.add_theme_stylebox_override("normal",ArcadeUISkin.button("selected"))
 	powerup_guide_button.grab_focus()
 	powerup_bar.hide()
 	powerup_caption.hide()
@@ -306,7 +311,8 @@ func _icon(parent: Node, rect: Rect2, kind: int, map_index := 0) -> ArcadeUIIcon
 
 func _stat_card(parent: Node, rect: Rect2, caption: String, value: String, kind: int, accent: Color) -> void:
 	var card := _panel(parent,rect,ArcadeUISkin.CARD,Color(accent,0.45))
-	_icon(card,Rect2(12,19,28,28),kind,_map_selected-1)
+	if not _paused: card.add_theme_stylebox_override("panel",StyleBoxEmpty.new())
+	_icon(card,Rect2(10,17,32,32),kind,_map_selected-1)
 	_left_label(card,Rect2(51,8,rect.size.x-58,18),caption,11,ArcadeUISkin.MUTED)
 	var number := _left_label(card,Rect2(51,28,rect.size.x-58,28),value,21,accent)
 	if value.length() < 7: number.add_theme_font_override("font",PIXEL)
@@ -330,15 +336,19 @@ func _button(parent: Node, rect: Rect2, text: String, callback: Callable) -> But
 	button.position = rect.position
 	button.size = rect.size
 	button.text = text
+	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	button.add_theme_stylebox_override("normal",ArcadeUISkin.button())
-	button.add_theme_stylebox_override("hover",ArcadeUISkin.button(Color("294253"),ArcadeUISkin.GOLD,2))
-	button.add_theme_stylebox_override("pressed",ArcadeUISkin.button(Color("405345"),ArcadeUISkin.CREAM,2))
-	button.add_theme_stylebox_override("disabled",ArcadeUISkin.button(Color("14212b"),Color("35414a")))
-	button.add_theme_stylebox_override("focus",_style(Color(0,0,0,0),Color("fff0b0"),2))
-	button.add_theme_font_size_override("font_size",15)
-	button.add_theme_color_override("font_color",ArcadeUISkin.CREAM)
-	button.add_theme_color_override("font_hover_color",Color.WHITE)
-	button.add_theme_color_override("font_disabled_color",Color("778386"))
+	button.add_theme_stylebox_override("hover",ArcadeUISkin.button("hover"))
+	button.add_theme_stylebox_override("pressed",ArcadeUISkin.button("pressed"))
+	button.add_theme_stylebox_override("disabled",ArcadeUISkin.button("disabled"))
+	button.add_theme_stylebox_override("focus",ArcadeUISkin.focus())
+	button.add_theme_font_size_override("font_size",14)
+	button.add_theme_color_override("font_color",Color("56331d"))
+	button.add_theme_color_override("font_focus_color",Color("56331d"))
+	button.add_theme_color_override("font_hover_color",Color("3e2418"))
+	button.add_theme_color_override("font_hover_pressed_color",Color("56331d"))
+	button.add_theme_color_override("font_pressed_color",Color("56331d"))
+	button.add_theme_color_override("font_disabled_color",Color("756c5a"))
 	button.pressed.connect(callback)
 	parent.add_child(button)
 	return button
@@ -350,6 +360,7 @@ func _process(delta: float) -> void:
 	toast_panel.position.y = 146 if storage_notice.visible else 70
 	_toast_left = maxf(0.0,_toast_left-delta)
 	toast_panel.visible = _toast_left > 0.0 and not overlay.visible and not is_powerup_guide_visible()
+	if not get_tree().paused: _qte_feedback_left = maxf(0.0,_qte_feedback_left-delta)
 	toast.visible = toast_panel.visible
 	if not get_tree().paused:
 		_combo_pop_age += delta
@@ -474,9 +485,19 @@ func show_menu(profile: ArcadeProfile, selected: int, result := {}, paused := fa
 	if paused:
 		_show_pause_card(profile)
 		return
+	var menu_art := TextureRect.new()
+	menu_art.texture = ArcadeUISkin.MENU_BACKGROUND
+	menu_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	menu_art.stretch_mode = TextureRect.STRETCH_SCALE
+	menu_art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	menu_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	menu_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(menu_art)
 	var accent: Color = ArcadeUISkin.ACCENTS[_map_selected-1]
 	var panel := _panel(overlay,Rect2(42,22,876,496),ArcadeUISkin.PANEL,ArcadeUISkin.GOLD)
-	_panel(panel,Rect2(0,0,210,496),ArcadeUISkin.INK,Color("465254"))
+	panel.add_theme_stylebox_override("panel",StyleBoxEmpty.new())
+	var sidebar := _panel(panel,Rect2(0,0,210,496),ArcadeUISkin.INK,Color("465254"))
+	sidebar.add_theme_stylebox_override("panel",StyleBoxEmpty.new())
 	_left_label(panel,Rect2(18,16,172,34),tr2("夜访农场","NIGHT FARM"),25 if language == "zh" else 20)
 	var subtitle := _left_label(panel,Rect2(20,50,155,18),"POCKET HARVEST",9,ArcadeUISkin.GOLD)
 	subtitle.add_theme_font_override("font",PIXEL)
@@ -496,22 +517,27 @@ func show_menu(profile: ArcadeProfile, selected: int, result := {}, paused := fa
 		summary = tr2("金币已带到新地图，可以重新搭配本图增益。","Coins carried over. Choose fresh buffs for this map.")
 	_left_label(panel,Rect2(230,52,618,23),summary,12,ArcadeUISkin.MUTED)
 	var wallet := _panel(panel,Rect2(708,13,140,39),Color("26352e"),Color("81754f"))
-	_icon(wallet,Rect2(10,8,23,23),ArcadeUIIcon.Kind.COIN)
+	wallet.add_theme_stylebox_override("panel",StyleBoxEmpty.new())
+	_icon(wallet,Rect2(8,5,28,28),ArcadeUIIcon.Kind.COIN)
 	_left_label(wallet,Rect2(42,3,91,14),tr2("持有金币","WALLET"),10,ArcadeUISkin.MUTED)
 	_left_label(wallet,Rect2(42,16,91,21),str(profile.coins),17,ArcadeUISkin.CREAM)
 	for i in range(4):
 		var index := i+1
-		var button := _button(panel,Rect2(14,108+i*63,182,54),"",func(): map_selection_changed.emit(index))
+		var button := _button(panel,Rect2(14,108+i*64,182,60),"",func(): map_selection_changed.emit(index))
 		var allowed := profile.can_visit_map(index)
 		button.disabled = not allowed
-		if index == _map_selected: button.add_theme_stylebox_override("normal",ArcadeUISkin.button(Color("30443f"),accent,2))
-		_icon(button,Rect2(12,11,31,31),ArcadeUIIcon.Kind.RESOURCE,i)
-		_left_label(button,Rect2(54,5,119,25),ArcadeThemes.name_for(index,language),17,ArcadeUISkin.CREAM if allowed else ArcadeUISkin.MUTED)
-		var state := tr2("自由试玩","OPEN TO PLAY") if profile.free_selection else (tr2("已通关","CLEARED") if profile.cleared[i] else tr2("已解锁","UNLOCKED"))
-		if not allowed: state = tr2("完成前一地图解锁","CLEAR PREVIOUS MAP")
-		_left_label(button,Rect2(54,29,119,18),"%02d  %s" % [index,state],10,accent if index == _map_selected else ArcadeUISkin.MUTED)
+		if index == _map_selected: button.add_theme_stylebox_override("normal",ArcadeUISkin.button("selected"))
+		_icon(button,Rect2(10,12,36,36),ArcadeUIIcon.Kind.RESOURCE,i)
+		var title_rect := Rect2(54,10,119,21)
+		if profile.free_selection: title_rect = Rect2(54,15,119,30)
+		_left_label(button,title_rect,ArcadeThemes.name_for(index,language),17,Color("56331d") if allowed else Color("756c5a"))
+		if not profile.free_selection:
+			var state := tr2("已通关","CLEARED") if profile.cleared[i] else tr2("已解锁","UNLOCKED")
+			if not allowed: state = tr2("完成前一地图解锁","CLEAR PREVIOUS MAP")
+			_left_label(button,Rect2(54,31,119,13),"%02d  %s" % [index,state],10,Color("62401f") if index == _map_selected else Color("756c5a"))
 		map_buttons.append(button)
 	var controls := _panel(panel,Rect2(14,376,182,103),Color("132333"),Color("34494e"))
+	controls.add_theme_stylebox_override("panel",StyleBoxEmpty.new())
 	_left_label(controls,Rect2(12,7,158,20),tr2("操作小抄","QUICK CONTROLS"),12,ArcadeUISkin.GOLD)
 	_left_label(controls,Rect2(12,33,158,19),tr2("WASD / 方向键  移动","WASD / arrows  Move"),11)
 	_left_label(controls,Rect2(12,54,158,19),tr2("左键收集 · 碰道具即用","Click items · Touch buffs"),11)
@@ -521,7 +547,7 @@ func show_menu(profile: ArcadeProfile, selected: int, result := {}, paused := fa
 	if result.has("score"):
 		_stat_card(panel,Rect2(230,83,198,68),tr2("本局得分","RUN SCORE")+tr2(" · 新纪录"," · NEW BEST") if result.get("record",false) else tr2("本局得分","RUN SCORE"),str(result.score),ArcadeUIIcon.Kind.STAR,accent)
 		_stat_card(panel,Rect2(438,83,198,68),tr2("收集数量","COLLECTED"),str(result.get("eggs",0)),ArcadeUIIcon.Kind.RESOURCE,ArcadeUISkin.CREAM)
-		_stat_card(panel,Rect2(646,83,198,68),tr2("金币入账","COINS EARNED"),"+%d" % result.get("reward",0),ArcadeUIIcon.Kind.COIN,Color("e7c66c"))
+		_stat_card(panel,Rect2(646,83,198,68),tr2("金币入账","COINS EARNED"),"+%d" % result.get("reward",0),ArcadeUIIcon.Kind.COIN,ArcadeUISkin.GOLD)
 	else:
 		_stat_card(panel,Rect2(230,83,198,68),tr2("每关时长","ROOM LENGTH"),"%ds" % round_duration,ArcadeUIIcon.Kind.CLOCK,accent)
 		_stat_card(panel,Rect2(438,83,198,68),tr2("本关最高分","ROOM BEST"),str(profile.best_for(_map_selected,room)),ArcadeUIIcon.Kind.STAR,ArcadeUISkin.CREAM)
@@ -530,59 +556,66 @@ func show_menu(profile: ArcadeProfile, selected: int, result := {}, paused := fa
 	for i in range(4):
 		var level := i+1
 		var name: String = [tr2("初试","FIRST STEPS"),tr2("加量","MORE TO GATHER"),tr2("丰收","HARVEST"),tr2("挑战","CHALLENGE")][i]
-		var button := _button(panel,Rect2(230+i*157,184,145,35),"%d-%d  %s" % [_map_selected,level,name],func(): selection_changed.emit(level))
+		var button := _button(panel,Rect2(230+i*157,184,145,48),"%d-%d  %s" % [_map_selected,level,name],func(): selection_changed.emit(level))
 		button.add_theme_font_size_override("font_size",12 if language == "en" else 14)
 		button.disabled = not profile.free_selection and (not active_map or profile.map_complete or level != room)
-		if level == room: button.add_theme_stylebox_override("normal",ArcadeUISkin.button(Color("35483e"),accent,2))
+		if level == room:
+			button.add_theme_stylebox_override("normal",ArcadeUISkin.button("selected"))
+			button.add_theme_color_override("font_color",Color("56331d"))
+			button.add_theme_color_override("font_hover_color",Color("56331d"))
+			button.add_theme_color_override("font_hover_pressed_color",Color("56331d"))
+			button.add_theme_color_override("font_pressed_color",Color("56331d"))
 		room_buttons.append(button)
-	_left_label(panel,Rect2(230,230,250,18),tr2("本图增益","YOUR KIT FOR THIS MAP"),12,ArcadeUISkin.MUTED)
+	_left_label(panel,Rect2(230,236,250,18),tr2("本图增益","YOUR KIT FOR THIS MAP"),12,ArcadeUISkin.MUTED)
 	var names := [tr2("拾取范围","Pickup reach"),tr2("额外收获","Bonus yield"),tr2("资源窝补货","Nest refill")]
 	var details := [tr2("整圈拾取半径更大","A larger collection ring"),tr2("每级 +10% 双份概率","+10% extra yield / level"),tr2("空窝补货间隔更短","Empty nests refill sooner")]
 	for i in range(3):
 		var index := i
 		var grade: int = profile.upgrades[i] if active_map and not profile.map_complete else 0
 		var price := profile.cost(i) if active_map and not profile.map_complete else ArcadeProfile.COSTS[0]
-		var card := _panel(panel,Rect2(230+i*208,253,198,94),ArcadeUISkin.CARD,Color("42585b"))
-		_icon(card,Rect2(9,9,27,27),[ArcadeUIIcon.Kind.RANGE,ArcadeUIIcon.Kind.YIELD,ArcadeUIIcon.Kind.REFILL][i])
+		var card := _panel(panel,Rect2(230+i*208,257,198,112),ArcadeUISkin.CARD,Color("42585b"))
+		card.add_theme_stylebox_override("panel",StyleBoxEmpty.new())
+		_icon(card,Rect2(7,7,32,32),[ArcadeUIIcon.Kind.RANGE,ArcadeUIIcon.Kind.YIELD,ArcadeUIIcon.Kind.REFILL][i])
 		_left_label(card,Rect2(43,7,113,24),names[i],14)
 		_label(card,Rect2(155,9,37,20),"%d/5" % grade,11)
-		_left_label(card,Rect2(12,34,180,18),details[i],11,ArcadeUISkin.MUTED)
-		var button := _button(card,Rect2(10,59,178,27),tr2("已满级","MAX LEVEL") if price < 0 else tr2("升级  %d 币","UPGRADE  %d") % price,func(): upgrade_requested.emit(index))
+		_left_label(card,Rect2(12,40,180,16),details[i],11,ArcadeUISkin.MUTED)
+		var button := _button(card,Rect2(10,58,178,48),tr2("已满级","MAX LEVEL") if price < 0 else tr2("升级  %d 币","UPGRADE  %d") % price,func(): upgrade_requested.emit(index))
 		button.add_theme_font_size_override("font_size",12)
 		button.disabled = not profile.can_visit_map(_map_selected) or price < 0 or profile.coins < price
 		button.tooltip_text = tr2("本图四个小关内有效；进入新地图时重置。","Lasts for this map's four rooms. Resets on map entry.")
 		if price > profile.coins: button.tooltip_text = tr2("还差 %d 枚金币","Need %d more coins") % (price-profile.coins)
 		upgrade_buttons.append(button)
-	_left_label(panel,Rect2(230,355,618,18),tr2("散落道具 · 碰到即用","SCATTERED POWERUPS · TOUCH TO USE"),12,ArcadeUISkin.MUTED)
+	_left_label(panel,Rect2(230,371,618,18),tr2("散落道具 · 碰到即用","SCATTERED POWERUPS · TOUCH TO USE"),12,ArcadeUISkin.MUTED)
 	var pool := ArcadePowerup.available_for(_map_selected,room)
 	for i in range(3):
 		var unlocked := pool.has(i)
-		var card := _panel(panel,Rect2(230+i*208,378,198,33),Color("132536"),Color("354c53"))
-		var icon := _powerup_icon(card,i,Rect2(6,3,28,26))
+		var card := _panel(panel,Rect2(230+i*208,391,198,33),Color("132536"),Color("354c53"))
+		card.add_theme_stylebox_override("panel",StyleBoxEmpty.new())
+		var icon := _powerup_icon(card,i,Rect2(4,2,32,29))
 		icon.modulate.a = 1.0 if unlocked else 0.3
 		var caption := ArcadePowerup.name_for(i,language) if unlocked else ArcadePowerup.unlock_caption(i,language)
 		var label := _left_label(card,Rect2(43,3,150,27),caption,13,ArcadeUISkin.CREAM if unlocked else ArcadeUISkin.MUTED)
 		label.mouse_filter = Control.MOUSE_FILTER_PASS
 		label.tooltip_text = ArcadePowerup.description_for(i,language) if unlocked else "%s · %s" % [ArcadePowerup.name_for(i,language),ArcadePowerup.unlock_caption(i,language)]
-	menu_save_help = _left_label(panel,Rect2(230,417,618,18),tr2("金币跨图保留 · 购买增益仅在本图有效","Keep coins across maps · Purchased buffs last for this map"),11,ArcadeUISkin.MUTED)
-	menu_storage_label = _left_label(panel,Rect2(230,413,618,29),"",10,Color("ffd38a"))
+	menu_save_help = _left_label(panel,Rect2(230,426,618,18),tr2("金币跨图保留 · 购买增益仅在本图有效","Keep coins across maps · Purchased buffs last for this map"),11,ArcadeUISkin.MUTED)
+	menu_storage_label = _left_label(panel,Rect2(230,418,618,29),"",10,Color("ffd38a"))
 	menu_storage_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	update_storage_status(profile)
 	var caption := tr2("出发  %d-%d  ·  %d秒","PLAY  %d-%d  ·  %ds") % [_map_selected,room,round_duration]
-	primary_button = _button(panel,Rect2(230,446,390,34),caption,func(): start_requested.emit(room,_map_selected))
-	primary_button.add_theme_stylebox_override("normal",ArcadeUISkin.button(Color("77552d"),Color("edc67e"),2))
-	_button(panel,Rect2(632,446,92,34),"中文" if language == "en" else "English",func():
+	primary_button = _button(panel,Rect2(230,448,390,48),caption,func(): start_requested.emit(room,_map_selected))
+	primary_button.add_theme_stylebox_override("normal",ArcadeUISkin.button("primary"))
+	_button(panel,Rect2(632,448,92,48),"中文" if language == "en" else "English",func():
 		language = "zh" if language == "en" else "en"
 		show_menu(_profile,_selected,_result,false,_map_selected))
-	var restart := _button(panel,Rect2(736,446,110,34),tr2("重开此图","RESTART MAP"),func(): restart_requested.emit(_map_selected))
+	var restart := _button(panel,Rect2(736,448,110,48),tr2("重开此图","RESTART MAP"),func(): restart_requested.emit(_map_selected))
 	restart.add_theme_font_size_override("font_size",12)
 	restart.tooltip_text = tr2("金币保留，本图增益与关卡进度归零。","Keep coins; reset this map's buffs and run progress.")
 	restart.disabled = not active_map
 	primary_button.grab_focus()
 
 func _show_pause_card(profile: ArcadeProfile) -> void:
-	var panel := _panel(overlay,Rect2(254,83,452,374),ArcadeUISkin.PANEL,ArcadeUISkin.GOLD)
-	_icon(panel,Rect2(204,22,44,44),ArcadeUIIcon.Kind.PAUSE)
+	var panel := _panel(overlay,Rect2(254,75,452,390),ArcadeUISkin.PANEL,ArcadeUISkin.GOLD)
+	_icon(panel,Rect2(202,20,48,48),ArcadeUIIcon.Kind.PAUSE)
 	_label(panel,Rect2(24,75,404,37),tr2("歇一会儿","TAKE A BREATHER"),27)
 	_label(panel,Rect2(24,116,404,23),tr2("时间已暂停，收获还在袋子里。","Time is paused. Your harvest is safe."),14)
 	_stat_card(panel,Rect2(26,153,195,66),tr2("当前得分","CURRENT SCORE"),str(_last_score),ArcadeUIIcon.Kind.STAR,ArcadeUISkin.GOLD)
@@ -591,12 +624,12 @@ func _show_pause_card(profile: ArcadeProfile) -> void:
 	menu_storage_label = _label(panel,Rect2(26,228,400,37),"",10)
 	menu_storage_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	update_storage_status(profile)
-	primary_button = _button(panel,Rect2(26,275,400,38),tr2("继续收获  ·  ESC","KEEP GATHERING  ·  ESC"),func(): pause_requested.emit())
-	primary_button.add_theme_stylebox_override("normal",ArcadeUISkin.button(Color("77552d"),ArcadeUISkin.GOLD,2))
-	_button(panel,Rect2(26,326,192,30),"中文" if language == "en" else "English",func():
+	primary_button = _button(panel,Rect2(26,275,400,48),tr2("继续收获  ·  ESC","KEEP GATHERING  ·  ESC"),func(): pause_requested.emit())
+	primary_button.add_theme_stylebox_override("normal",ArcadeUISkin.button("primary"))
+	_button(panel,Rect2(26,326,192,48),"中文" if language == "en" else "English",func():
 		language = "zh" if language == "en" else "en"
 		show_menu(_profile,_selected,{},true,_map_selected))
-	_button(panel,Rect2(230,326,196,30),tr2("返回菜单","BACK TO MENU"),func(): abandon_requested.emit()).tooltip_text = tr2("退出当前小关，本局未结算收获不会入账。","Leave this room. Unsettled harvest will not be added to your wallet.")
+	_button(panel,Rect2(230,326,196,48),tr2("返回菜单","BACK TO MENU"),func(): abandon_requested.emit()).tooltip_text = tr2("退出当前小关，本局未结算收获不会入账。","Leave this room. Unsettled harvest will not be added to your wallet.")
 	primary_button.grab_focus()
 
 
@@ -648,8 +681,24 @@ func hide_menu() -> void:
 	pause_button.show()
 
 func update_danger(level: float, seen: bool, farmer_present: bool) -> void:
+	var qte_now := _running and level >= 60.0
+	if qte_now and not hud_chrome.qte_active: hud_chrome.qte_phase = 0.0
+	hud_chrome.qte_active = qte_now
 	hud_chrome.danger_value = clampf(level,0,100)
 	hud_chrome.farmer_present = farmer_present
 	hud_chrome.queue_redraw()
-	danger_label.text = tr2("农夫追赶中 · 绕到掩体后！","FARMER CHASING · BREAK SIGHT!") if farmer_present else (tr2("被发现！警戒 %d / 100","SPOTTED · ALERT %d / 100") % floori(level) if seen else tr2("警戒 %d / 100","ALERT %d / 100") % floori(level))
-	danger_label.add_theme_color_override("font_color",Color("ff8b72") if seen or farmer_present else Color("ffe5ad"))
+	if _qte_feedback_left > 0.0:
+		danger_label.text = tr2("命中！警戒降低","NICE HIT! ALERT DOWN") if _qte_feedback_result == 1 else tr2("没踩中，再等金色区","MISSED · WAIT FOR GOLD")
+	elif qte_now:
+		danger_label.text = tr2("警戒 %d / 100 · 空格踩金区","ALERT %d / 100 · SPACE ON GOLD") % floori(level)
+	else:
+		danger_label.text = tr2("农夫追赶中 · 绕到掩体后！","FARMER CHASING · BREAK SIGHT!") if farmer_present else (tr2("被发现！警戒 %d / 100","SPOTTED · ALERT %d / 100") % floori(level) if seen else tr2("警戒 %d / 100","ALERT %d / 100") % floori(level))
+	var color := Color("9cc880") if _qte_feedback_left > 0.0 and _qte_feedback_result == 1 else (Color("e5bc70") if qte_now else (Color("ff8b72") if seen or farmer_present else Color("ffe5ad")))
+	danger_label.add_theme_color_override("font_color",color)
+
+func try_alert_qte() -> int:
+	if not hud_chrome.qte_active: return -1
+	var hit: bool = hud_chrome.qte_phase >= 0.62 and hud_chrome.qte_phase <= 0.78
+	_qte_feedback_result = 1 if hit else 0
+	_qte_feedback_left = 0.75
+	return _qte_feedback_result
