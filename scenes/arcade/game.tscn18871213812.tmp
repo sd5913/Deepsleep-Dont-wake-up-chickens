@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cu27bksh4c21a"]
+
+[ext_resource type="Script" uid="uid://b6d0ug52ibux6" path="res://scenes/arcade/game.gd" id="1"]
+
+[node name="EggRush" type="Node2D"]
+script = ExtResource("1")
