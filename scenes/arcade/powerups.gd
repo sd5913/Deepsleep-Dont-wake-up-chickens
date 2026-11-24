@@ -1,6 +1,7 @@
 class_name ArcadePowerups
 extends RefCounted
 
+signal audio_event(cue: String)
 signal picked_up(kind: int)
 
 const CONTACT_RADIUS := 24.0
@@ -62,7 +63,11 @@ func _spawn_next() -> bool:
 	return true
 
 func advance(delta: float) -> void:
-	for i in range(active.size()): active[i] = maxf(0.0,active[i]-delta)
+	for i in range(active.size()):
+		var before := active[i]
+		active[i] = maxf(0.0,active[i]-delta)
+		if i == 2 and before > 1.0 and active[i] <= 1.0 and active[i] > 0.0: audio_event.emit("23_cloak_expiring")
+		if before > 0.0 and active[i] == 0.0: audio_event.emit(["21_badge_end","22_basket_end","24_cloak_end"][i])
 	player.concealed = active[ArcadePowerup.Kind.STEALTH] > 0.0
 	_aura.queue_redraw()
 	if spawned >= spawn_limit: return
@@ -121,7 +126,9 @@ func take(drop: ArcadePowerup) -> void:
 	if drop.claimed or not drops.has(drop): return
 	drop.claimed = true
 	drops.erase(drop)
+	var refresh := active[drop.kind] > 0.0
 	active[drop.kind] = ArcadePowerup.DURATIONS[drop.kind]
+	audio_event.emit("20_powerup_refresh" if refresh else ["17_badge_activate","18_basket_activate","19_cloak_activate"][drop.kind])
 	player.concealed = active[ArcadePowerup.Kind.STEALTH] > 0.0
 	picked_up.emit(drop.kind)
 	drop.queue_free()

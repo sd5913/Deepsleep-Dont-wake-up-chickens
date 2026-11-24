@@ -2,6 +2,7 @@ class_name ArcadeSnake
 extends CharacterBody2D
 
 signal player_hit
+signal dashed
 signal hatched
 const ATLAS := preload("res://assets/art/snake_atlas.png")
 const ART_SCALE := 0.24
@@ -20,6 +21,7 @@ var sprite: Sprite2D
 var frame_index := -1
 var hand_offset := Vector2.ZERO
 var did_hatch := false
+var did_dash := false
 static var _textures: Array[AtlasTexture] = []
 
 func _ready() -> void:
@@ -69,6 +71,9 @@ func _physics_process(delta: float) -> void:
 		hatched.emit()
 	_update_art()
 	if age < BURST_SECONDS: return
+	if not did_dash:
+		did_dash = true
+		dashed.emit()
 	var previous := global_position
 	var travel := direction*DASH_SPEED*minf(delta,age-BURST_SECONDS)
 	var collision := move_and_collide(travel)

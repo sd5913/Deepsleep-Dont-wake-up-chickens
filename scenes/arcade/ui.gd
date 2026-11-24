@@ -1,6 +1,7 @@
 class_name ArcadeUI
 extends CanvasLayer
 
+signal audio_confirm
 signal start_requested(level: int, map_index: int)
 signal map_selection_changed(map_index: int)
 signal restart_requested(map_index: int)
@@ -349,6 +350,7 @@ func _button(parent: Node, rect: Rect2, text: String, callback: Callable) -> But
 	button.add_theme_color_override("font_hover_pressed_color",Color("56331d"))
 	button.add_theme_color_override("font_pressed_color",Color("56331d"))
 	button.add_theme_color_override("font_disabled_color",Color("756c5a"))
+	button.pressed.connect(func(): audio_confirm.emit())
 	button.pressed.connect(callback)
 	parent.add_child(button)
 	return button

@@ -2,7 +2,7 @@ class_name ArcadeGame
 extends Node2D
 
 const PLAYER := preload("res://scenes/player.tscn")
-const AUDIO := preload("res://scenes/round_audio.tscn")
+const AUDIO := preload("res://scenes/arcade/game_audio.gd")
 const CHICKEN := preload("res://scenes/chicken.tscn")
 const FARMER := preload("res://scenes/farmer.tscn")
 const FARMER_SCRIPT := preload("res://scenes/arcade/farmer.gd")
@@ -33,7 +33,12 @@ var world: ArcadeWorld
 var player: CoopPlayer
 var ui: ArcadeUI
 var camera: Camera2D
-var audio: CoopRoundAudio
+var audio: Node
+var _pickup_count := 0
+var _pickup_gold := false
+var _pickup_tier := 0
+var _pickup_queued := false
+var _last_tick := 0
 var eggs: Array[ArcadeEgg] = []
 var nests: Array[ArcadeNest] = []
 var hens: Array[ArcadeHen] = []
@@ -89,10 +94,9 @@ func _ready() -> void:
 	ui.selection_changed.connect(_select_level)
 	ui.upgrade_requested.connect(_buy_upgrade)
 	ui.powerup_guide_closed.connect(_close_powerup_guide)
-	audio = AUDIO.instantiate()
+	audio = AUDIO.new()
 	add_child(audio)
-	# Audio is intentionally off for this iteration.
-	for stream in audio.get_children(): stream.volume_db = -80
+	ui.audio_confirm.connect(func(): audio.play("12_ui_confirm",false,true))
 	_build_world(selected_level)
 	world.process_mode = Node.PROCESS_MODE_DISABLED
 	ui.show_menu(profile,selected_level,{},false,selected_map)
@@ -116,7 +120,7 @@ func _buy_upgrade(index: int) -> void:
 		profile.start_map(selected_map)
 		if free_stage_select: profile.prepare_room(selected_level)
 		last_result = {"entered_map":true}
-	profile.buy(index)
+	if profile.buy(index): audio.play("13_upgrade_purchase",false,true)
 	_build_world(selected_level)
 	world.process_mode = Node.PROCESS_MODE_DISABLED
 	ui.show_menu(profile,selected_level,last_result,false,selected_map)
@@ -137,6 +141,7 @@ func _request_round(level: int, map_index: int) -> void:
 		if entering and level != 1: return
 		if not entering and level != profile.unlocked: return
 	transitioning = true
+	audio.play("36_start_transition",false,true)
 	ui.show_transition(map_index,level)
 	await get_tree().create_timer(1.8 if map_index == 1 and level >= 2 else 1.0).timeout
 	begin_round(level,map_index)
@@ -184,6 +189,7 @@ func _build_world(level: int) -> void:
 	world.build(level,seed_value)
 	current_level = level
 	current_map = selected_map
+	if is_instance_valid(audio): audio.set_map(current_map)
 	camera.position = world.arena_size * 0.5
 	camera.zoom = Vector2.ONE * 960.0 / world.arena_size.x
 	player = PLAYER.instantiate()
@@ -218,6 +224,7 @@ func _build_world(level: int) -> void:
 	powerups = ArcadePowerups.new()
 	powerups.setup(world,player,profile,current_map,current_level,camera.zoom.x)
 	powerups.picked_up.connect(_on_powerup_collected)
+	powerups.audio_event.connect(func(cue: String): audio.play(cue))
 
 func begin_round(level: int, map_index := 0) -> void:
 	if running: return
@@ -239,10 +246,12 @@ func begin_round(level: int, map_index := 0) -> void:
 	golden_count = 0
 	time_left = round_seconds
 	protection_left = 3.0
+	_last_tick = 0
 	player.invulnerable = true
 	spawn_left = world.rng.randf_range(0.4,0.9)
 	last_result = {}
 	_last_seconds_announced = false
+	audio.stop_world()
 	running = true
 	powerups.seed_initial()
 	ui._map_selected = current_map
@@ -256,7 +265,13 @@ func _process(delta: float) -> void:
 	if time_left <= 0:
 		finish_round()
 		return
+	var was_protected := protection_left > 0.0
 	protection_left = maxf(0.0,protection_left-delta)
+	if was_protected and protection_left == 0.0: audio.play("27_protection_end")
+	var tick := ceili(time_left)
+	if tick <= 3 and tick != _last_tick:
+		_last_tick = tick
+		audio.play("14_countdown_tick",true)
 	snake_immunity_left = maxf(0.0,snake_immunity_left-delta)
 	player.invulnerable = protection_left > 0.0 or snake_immunity_left > 0.0
 	powerups.advance(delta)
@@ -270,6 +285,7 @@ func _process(delta: float) -> void:
 	_update_pickup_feedback(get_global_mouse_position())
 	if time_left <= 10.0 and not _last_seconds_announced:
 		_last_seconds_announced = true
+		audio.play("30_ten_seconds",true)
 		ui.announce("最后 10 秒，抓紧收集！","10 seconds left. Keep collecting!")
 	combo_left = maxf(0,combo_left-delta)
 	if combo_left == 0: chain = 0
@@ -284,10 +300,12 @@ func _process(delta: float) -> void:
 	if current_map != 3 and current_level >= 3 and golden_count == 0 and elapsed >= round_seconds*0.5:
 		_add_hen(true)
 		golden_count = 1
+		audio.play("31_golden_arrival")
 		ui.announce("黄金伙伴来了！金色收集物价值更高。","Golden visitor! Its golden items are worth more.")
 	if current_map != 3 and current_level == 4 and golden_count == 1 and elapsed >= round_seconds*0.75:
 		_add_hen(true)
 		golden_count = 2
+		audio.play("31_golden_arrival")
 		ui.announce("第二只黄金伙伴加入了农场！","A second golden visitor has arrived!")
 	_update_hud()
 
@@ -300,6 +318,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.keycode == KEY_SPACE and event.pressed and not event.echo:
 		var qte_result := ui.try_alert_qte()
 		if qte_result >= 0:
+			audio.play("08_escape_safe" if qte_result == 1 else "05_pickup_invalid")
 			if qte_result == 1:
 				alert.level = maxf(alert.level-25.0,0.0)
 				ui.show_reaction("时机正好！警戒下降","NICE TIMING! ALERT DOWN",0.75)
@@ -316,6 +335,7 @@ func collect_at(point: Vector2) -> bool:
 	if target is ArcadeEgg:
 		if not can_collect_point(target.position):
 			ui.announce("只能收集身边的物品；被木箱挡住时请绕过去。","Move closer; crates can block a pickup.")
+			audio.play("05_pickup_invalid")
 			return false
 		# The player's ring is the collection area, regardless of the clicked egg.
 		for other: ArcadeEgg in eggs.duplicate():
@@ -325,10 +345,12 @@ func collect_at(point: Vector2) -> bool:
 		var nest: ArcadeNest = target
 		if not can_collect_point(nest.position):
 			ui.announce("走近资源点，再连续点击收集。","Move closer, then left-click the resource patch.")
+			audio.play("05_pickup_invalid")
 			return false
 		if nest.take():
 			_award(nest.position+Vector2(0,-8),false)
 			return true
+		audio.play("05_pickup_invalid")
 		ui.announce("这里正在补货，先收集地面的物品吧。","Refilling. Collect some nearby ground items meanwhile.")
 	return false
 
@@ -392,6 +414,7 @@ func _maybe_show_powerup_guide() -> bool:
 			get_tree().paused = true
 			camera.offset = Vector2.ZERO
 			_clear_pickup_feedback()
+			audio.play("25_guide_open",false,true)
 			ui.show_powerup_guide(drop.kind)
 			_update_hud()
 			return true
@@ -437,6 +460,7 @@ func _release_snake(point: Vector2) -> void:
 	if snake.direction.is_zero_approx(): snake.direction = Vector2.from_angle(world.rng.randf_range(0,TAU))
 	snake.player_hit.connect(_on_snake_hit)
 	snake.hatched.connect(_on_snake_hatched)
+	snake.dashed.connect(func(): audio.play("10_snake_dash",true))
 	world.add_child(snake)
 	snakes.append(snake)
 	snake.tree_exiting.connect(func(): snakes.erase(snake))
@@ -445,6 +469,7 @@ func _release_snake(point: Vector2) -> void:
 
 func _on_snake_hatched() -> void:
 	if not running: return
+	audio.play("09_snake_hatch",true)
 	player.show_startle()
 	ui.show_reaction("！小蛇！快躲！","! SNAKE! MOVE!",1.05)
 	ui.announce("蛋裂开了！快侧移，小蛇马上直冲！","The egg cracked! Sidestep before the snake dashes!")
@@ -452,6 +477,7 @@ func _on_snake_hatched() -> void:
 
 func _on_snake_hit() -> void:
 	if not running or player.invulnerable: return
+	audio.play("11_snake_hit",true)
 	var penalty := mini(3,score)
 	score -= penalty
 	chain = 0
@@ -463,7 +489,15 @@ func _on_snake_hit() -> void:
 
 func _award(point: Vector2, gold: bool) -> void:
 	var units := 2 if world.rng.randf() < _buffs()[1]*0.1 else 1
+	var previous_tier := 1 + mini(3,chain/12)
 	chain += 1
+	_pickup_count += 1
+	_pickup_gold = _pickup_gold or gold
+	var next_tier := 1 + mini(3,chain/12)
+	if next_tier > previous_tier: _pickup_tier = next_tier
+	if not _pickup_queued:
+		_pickup_queued = true
+		call_deferred("_flush_pickup_audio")
 	combo_left = 2.2
 	var points := units * (5 if gold else 1) * multiplier()
 	score += points
@@ -541,6 +575,7 @@ func _update_guards(delta: float) -> void:
 		ui.show_reaction("！被发现了！","! SPOTTED!",0.9)
 		ui.announce("被发现了！快绕到掩体后，农夫会赶过来！","Spotted! Break sight behind cover before the farmer arrives!")
 		_detection_cooldown = 1.2
+		audio.play(["40_hen_alarm","41_sheep_alarm","42_squirrel_alarm","43_dog_alarm"][current_map-1],true)
 	_was_seen = detected
 	if seen > 0: _reported_position = player.position
 	alert.advance(delta,seen,clucks,farmer_sees)
@@ -555,6 +590,7 @@ func _update_guards(delta: float) -> void:
 	elif _farmer_armed:
 		_farmer_armed = false
 		_farmer_warning = stage_settings.warning
+		audio.play("07_farmer_warning",true)
 		_reported_position = player.position
 		ui.announce("警戒升高，农夫即将从北侧入场！","High alert! The farmer is coming from the north!")
 
@@ -579,6 +615,7 @@ func _spawn_farmer() -> void:
 	ui.announce("农夫正在搜寻，利用木箱躲开视线！","Farmer searching! Break sight behind crates!")
 
 func _farmer_lost_player() -> void:
+	audio.play("08_escape_safe")
 	alert.level = minf(alert.level,40.0)
 	_farmer_cooldown_left = 8.0
 	_farmer_warning = 0.0
@@ -633,12 +670,14 @@ func toggle_pause() -> void:
 		_close_powerup_guide()
 		return
 	get_tree().paused = not get_tree().paused
+	audio.play("28_pause" if get_tree().paused else "29_resume",false,true)
 	if get_tree().paused: camera.offset = Vector2.ZERO
 	_clear_pickup_feedback()
 	if get_tree().paused: ui.show_menu(profile,current_level,{},true,current_map)
 	else: ui.hide_menu()
 
 func abandon_round() -> void:
+	audio.stop_world()
 	_end_powerups()
 	_reset_shake()
 	_clear_pickup_feedback()
@@ -658,6 +697,11 @@ func finish_round(caught := false) -> void:
 	last_result = profile.settle(current_level,score,not caught)
 	last_result["eggs"] = collected
 	last_result["caught"] = caught
+	audio.stop_world()
+	var cue := "16_caught_end" if caught else ("33_map_complete" if last_result.get("map_complete",false) else ("32_new_record" if last_result.get("record",false) else "15_round_complete"))
+	audio.play(cue,true,true)
+	if int(last_result.get("reward",0)) > 0:
+		audio.reward_left = 1.4
 	selected_map = mini(current_map+1,4 if free_stage_select else profile.unlocked_maps) if profile.map_complete and current_map < 4 else current_map
 	selected_level = 1 if profile.map_complete else profile.unlocked
 	ui.show_menu(profile,selected_level,last_result,false,selected_map)
@@ -698,3 +742,14 @@ func _reset_shake() -> void:
 
 func _on_storage_status_changed() -> void:
 	if is_instance_valid(ui): ui.update_storage_status(profile)
+
+func _flush_pickup_audio() -> void:
+	if running:
+		if _pickup_tier > 0: audio.play("04_multiplier_x%d" % _pickup_tier)
+		elif _pickup_gold: audio.play("03_pickup_gold")
+		elif _pickup_count > 1: audio.play("02_pickup_batch")
+		else: audio.play(["01_pickup_single","37_harvest_wool","38_harvest_cone","39_harvest_cabbage"][current_map-1])
+	_pickup_count = 0
+	_pickup_gold = false
+	_pickup_tier = 0
+	_pickup_queued = false
