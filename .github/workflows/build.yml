@@ -5,55 +5,214 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   export:
+    if: github.event_name != 'push' || !github.event.deleted
     runs-on: ubuntu-26.04
     timeout-minutes: 30
+    outputs:
+      tag_object: ${{ steps.tag.outputs.tag_object }}
+      pages_artifact: github-pages-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v7
-      - run: .codex/setup.sh
-      - name: Export web and desktop
+        with:
+          fetch-depth: ${{ github.ref_type != 'tag' && 1 || 0 }}
+          persist-credentials: false
+      - name: Verify release tag
+        id: tag
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          PUSHED_SHA: ${{ github.event.after }}
+          NEW_TAG: ${{ github.event.created }}
         run: |
-          GODOT="$HOME/.cache/sd5913-godot-4.5.1/godot"
-          mkdir -p build/web build/linux build/windows && touch build/.gdignore
+          if [[ "$NEW_TAG" != true ]]; then
+            echo 'A release requires a newly created tag.' >&2
+            exit 1
+          fi
+          tag_object="$(bash .github/scripts/verify-release-tag.sh "$RELEASE_TAG" "$PUSHED_SHA")"
+          if [[ "$(git rev-parse HEAD)" != "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" ]]; then
+            echo 'The checked-out commit does not match the release tag.' >&2
+            exit 1
+          fi
+          echo "tag_object=$tag_object" >> "$GITHUB_OUTPUT"
+      - name: Set up Godot and matching templates
+        run: |
+          .codex/setup.sh
+          godot="$(.codex/setup.sh --print-path)"
+          "$godot" --version
+          echo "GODOT=$godot" >> "$GITHUB_ENV"
+      - name: Run existing Godot tests
+        run: |
+          for script in tests/*.gd; do
+            echo "::group::$script"
+            XDG_DATA_HOME="$(mktemp -d)" timeout 90s "$GODOT" \
+              --headless --path . --fixed-fps 60 --script "$script"
+            echo "::endgroup::"
+          done
+      - name: Export Web and desktop builds
+        run: |
+          mkdir -p build/{web,linux,windows,packages}
+          touch build/.gdignore
           "$GODOT" --headless --path . --export-release Web build/web/index.html
           "$GODOT" --headless --path . --export-release Linux build/linux/game.x86_64
           "$GODOT" --headless --path . --export-release Windows build/windows/game.exe
-      - uses: actions/upload-artifact@v7
+          "$GODOT" --headless --path . --export-release macOS build/packages/night-coop-macos-universal.zip
+          for extension in html js wasm pck; do
+            test -s "build/web/index.$extension"
+          done
+      - name: Package and check Linux and Windows archives
+        run: |
+          test -s build/linux/game.pck
+          test -s build/windows/game.pck
+          file -b build/linux/game.x86_64 | grep -E '^ELF 64-bit.*x86-64'
+          file -b build/windows/game.exe | grep -E '^PE32\+.*x86-64'
+          chmod +x build/linux/game.x86_64
+          zip -j build/packages/night-coop-linux-x86_64.zip build/linux/{game.x86_64,game.pck}
+          zip -j build/packages/night-coop-windows-x86_64.zip build/windows/{game.exe,game.pck}
+          archive_check="$(mktemp -d)"
+          unzip -q build/packages/night-coop-linux-x86_64.zip -d "$archive_check"
+          test -x "$archive_check/game.x86_64"
+          test -s "$archive_check/game.pck"
+          XDG_DATA_HOME="$(mktemp -d)" timeout 30s "$archive_check/game.x86_64" --headless --quit-after 60
+      - name: Upload Web export
+        uses: actions/upload-artifact@v7
         with:
-          name: game-exports
-          path: build/
+          name: night-coop-web
+          path: build/web/
           if-no-files-found: error
-  release:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_type == 'tag')
+          overwrite: true
+      - name: Upload Linux archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: night-coop-linux-x86_64.zip
+          path: build/packages/night-coop-linux-x86_64.zip
+          archive: false
+          if-no-files-found: error
+          overwrite: true
+      - name: Upload Windows archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: night-coop-windows-x86_64.zip
+          path: build/packages/night-coop-windows-x86_64.zip
+          archive: false
+          if-no-files-found: error
+          overwrite: true
+      - name: Upload macOS archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: night-coop-macos-universal.zip
+          path: build/packages/night-coop-macos-universal.zip
+          archive: false
+          if-no-files-found: error
+          overwrite: true
+      - name: Prepare GitHub Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          name: github-pages-${{ github.run_attempt }}
+          path: build/web/
+      - name: Package release ZIPs and generate checksums
+        if: steps.tag.outputs.tag_object != '' || github.event_name == 'workflow_dispatch'
+        run: .github/scripts/package-release.sh
+      - name: Stage release assets
+        if: steps.tag.outputs.tag_object != '' || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ github.event_name == 'workflow_dispatch' && 'release-preview' || 'release-assets' }}
+          path: build/release/
+          compression-level: 0
+          if-no-files-found: error
+          overwrite: true
+
+  check-macos:
     needs: export
+    runs-on: macos-15
+    timeout-minutes: 10
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: night-coop-macos-universal.zip
+          skip-decompress: true
+      - name: Check app layout, architecture, signature and startup
+        run: |
+          ditto -x -k night-coop-macos-universal.zip extracted
+          app="extracted/Night Coop.app"
+          executable="$app/Contents/MacOS/Night Coop"
+          test -s "$app/Contents/Info.plist"
+          test -s "$app/Contents/Resources/Night Coop.pck"
+          test -x "$executable"
+          lipo -archs "$executable"
+          lipo "$executable" -verify_arch x86_64 arm64
+          codesign --verify --all-architectures --verbose=2 "$app"
+          codesign -d --verbose=2 "$app" 2>&1 | grep '^Signature=adhoc'
+          "$executable" --headless --quit-after 60
+
+  check-windows:
+    needs: export
+    runs-on: windows-2025
+    timeout-minutes: 10
+    permissions: {}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: night-coop-windows-x86_64.zip
+          skip-decompress: true
+      - name: Check extracted game startup
+        shell: pwsh
+        run: |
+          Expand-Archive night-coop-windows-x86_64.zip extracted
+          $pack = Get-Item extracted/game.pck
+          if ($pack.Length -eq 0) { throw 'Missing or empty game.pck' }
+          $executable = (Resolve-Path extracted/game.exe).Path
+          $process = Start-Process -FilePath $executable -ArgumentList '--headless', '--quit-after', '60' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Godot exited with code $($process.ExitCode)" }
+
+  pages:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [export, check-macos, check-windows]
+    concurrency:
+      group: night-coop-pages
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+    with:
+      artifact-name: ${{ needs.export.outputs.pages_artifact }}
+
+  release:
+    if: github.event_name == 'push' && github.ref_type == 'tag' && needs.export.outputs.tag_object != ''
+    needs: [export, check-macos, check-windows]
     runs-on: ubuntu-26.04
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
-          name: game-exports
-          path: downloaded
-      - run: .github/scripts/package-release.sh
-      - name: Upload release package preview
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-preview
-          path: release/
-          if-no-files-found: error
-      - name: Create GitHub release
-        if: github.event_name == 'push'
+          name: release-assets
+          path: release
+      - name: Publish verified GitHub Release
+        working-directory: release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
+          VERIFIED_TAG_OBJECT: ${{ needs.export.outputs.tag_object }}
         run: |
-          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo 'Release tags must look like v1.2.3' >&2
+          current_tag_object="$(gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')"
+          if [[ "$current_tag_object" != "$VERIFIED_TAG_OBJECT" ]]; then
+            echo 'The tag changed after build validation.' >&2
             exit 1
           fi
-          gh release create "$RELEASE_TAG" release/web.zip release/linux.zip release/windows.zip --verify-tag --generate-notes
+          sha256sum --check --strict SHA256SUMS
+          gh release create "$RELEASE_TAG" \
+            linux.zip macos.zip web.zip windows.zip SHA256SUMS \
+            --verify-tag --generate-notes --title "Night Coop · Egg Rush $RELEASE_TAG"

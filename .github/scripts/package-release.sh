@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-test -s downloaded/web/index.html
-test -s downloaded/linux/game.x86_64
-test -s downloaded/linux/game.pck
-test -s downloaded/windows/game.exe
-test -s downloaded/windows/game.pck
-# Actions artifacts do not preserve executable permissions.
-chmod +x downloaded/linux/game.x86_64
-mkdir -p release
-for platform in web linux windows; do
-  (cd "downloaded/$platform" && zip -qr "../../release/$platform.zip" .)
-  test -s "release/$platform.zip"
+for package in build/packages/night-coop-{linux-x86_64,macos-universal,windows-x86_64}.zip; do
+  test -s "$package"
 done
+test -s build/web/index.html
+
+mkdir -p build/release
+cp build/packages/night-coop-linux-x86_64.zip build/release/linux.zip
+cp build/packages/night-coop-macos-universal.zip build/release/macos.zip
+cp build/packages/night-coop-windows-x86_64.zip build/release/windows.zip
+(cd build/web && zip -qr ../release/web.zip .)
+
+cd build/release
+sha256sum linux.zip macos.zip web.zip windows.zip > SHA256SUMS
