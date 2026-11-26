@@ -148,7 +148,7 @@ jobs:
           test -s "$app/Contents/Resources/Night Coop.pck"
           test -x "$executable"
           lipo -archs "$executable"
-          lipo -verify_arch x86_64 arm64 "$executable"
+          lipo "$executable" -verify_arch x86_64 arm64
           codesign --verify --all-architectures --verbose=2 "$app"
           codesign -d --verbose=2 "$app" 2>&1 | grep '^Signature=adhoc'
           "$executable" --headless --quit-after 60
