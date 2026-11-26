@@ -15,6 +15,8 @@ A pixel-art browser collection game with **4 maps × 4 rooms = 16 stages**. Coll
 
 [Play in your browser](https://night-coop-play-7k2.limberpetunia4.chatgpt.site)
 
+[Build, release, and installation guide](DEPLOYMENT.md)
+
 ## Run and check
 
 The UI now uses a map sidebar, room buttons, upgrade cards and a three-part harvest settlement. A segmented alert meter, urgent final-ten-second timer, compact actor-side buff meters and a dedicated pause card share the navy/gold pixel style. Score uses a star icon; currency uses coins. See [UI_DESIGN.md](UI_DESIGN.md). Native Chinese/English captures were inspected; browser playtesting remains pending.

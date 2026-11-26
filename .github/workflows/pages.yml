@@ -1,0 +1,40 @@
+name: Deploy Web to GitHub Pages
+on:
+  workflow_call:
+    inputs:
+      artifact-name:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check that this build is still at the tip of main
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          main_sha="$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "$main_sha" == "$GITHUB_SHA" ]]; then
+            echo 'current=true' >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping deployment of $GITHUB_SHA. The current main commit is $main_sha."
+          fi
+      - name: Deploy verified Web build
+        id: deployment
+        if: steps.latest.outputs.current == 'true'
+        uses: actions/deploy-pages@v5
+        with:
+          artifact_name: ${{ inputs.artifact-name }}
