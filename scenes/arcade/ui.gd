@@ -726,18 +726,17 @@ func show_title() -> void:
 	title_screen.color = Color("183e55")
 	title_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	screen.add_child(title_screen)
-	var landscape := Control.new()
-	landscape.set_script(preload("res://scenes/arcade/title_landscape.gd"))
+	var landscape := TextureRect.new()
+	landscape.texture = preload("res://assets/ui/title_farm_night.png")
+	landscape.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	landscape.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	landscape.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	landscape.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	landscape.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	title_screen.add_child(landscape)
 	title_heading = Control.new()
 	title_heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_screen.add_child(title_heading)
-	var badge := _label(title_heading,Rect2(280,103,400,24),"A LITTLE FARM. A BIG HARVEST.",10)
-	badge.add_theme_font_override("font",PIXEL)
-	badge.add_theme_color_override("font_color",Color("e2e6bd"))
-	badge.add_theme_constant_override("outline_size",4)
-	badge.add_theme_color_override("font_outline_color",Color("244955"))
 	var shadow := _label(title_heading,Rect2(166,150,636,90),tr2("夜访农场","NIGHT FARM"),68 if language == "zh" else 43)
 	shadow.add_theme_color_override("font_color",Color("173546"))
 	shadow.add_theme_constant_override("outline_size",12)
@@ -762,11 +761,9 @@ func show_title() -> void:
 	prompt.add_theme_font_override("font",PIXEL)
 	prompt.add_theme_constant_override("outline_size",4)
 	prompt.add_theme_color_override("font_outline_color",Color("244955"))
-	_label(title_screen,Rect2(285,408,390,24),tr2("躲开巡视，装满你的收获袋。","Dodge the patrol. Fill your harvest bag."),15)
 	_button(title_screen,Rect2(812,22,120,42),"English" if language == "zh" else "中文",func():
 		language = "en" if language == "zh" else "zh"
 		show_title())
-	_label(title_screen,Rect2(200,499,560,22),tr2("四座小农场 · 十六次丰收冒险","FOUR FARMS · SIXTEEN LITTLE ADVENTURES"),12)
 	title_start_button.grab_focus()
 
 func _enter_level_selection() -> void:
