@@ -29,13 +29,13 @@ func _frame(rect: Rect2, accent: Color) -> void:
 
 func _draw() -> void:
 	_frame(Rect2(14,12,72,48),ArcadeUISkin.GOLD)
-	_frame(Rect2(98,12,186,48),ArcadeUISkin.GOLD)
+	_frame(Rect2(98,12,144,48),ArcadeUISkin.GOLD)
 	var urgent := seconds > 0.0 and seconds <= 10.0
 	_frame(Rect2(800,12,146,48),Color("f39b78") if urgent else ArcadeUISkin.GOLD)
-	_frame(Rect2(300,12,360,46),Color("dd8066") if danger_value >= 80 or farmer_present else (ArcadeUISkin.GOLD if qte_active else Color("7a9997")))
+	_frame(Rect2(300,12,360,46),ArcadeUISkin.GOLD)
 	for rect in [Rect2(14,487,166,42),Rect2(210,487,540,42),Rect2(780,487,166,42)]:
 		_frame(rect,Color("9c885e"))
-	var tint := Color("df7962") if danger_value >= 80 else (Color("dbaa64") if danger_value >= 50 else Color("95b88b"))
+	var tint := Color("f0bd5b") if danger_value >= 80 else Color("ddb875")
 	for i in range(20):
 		var rect := Rect2(314+i*16.7,41,13.0,6)
 		draw_rect(rect,tint if i < ceili(danger_value/5.0) else Color("263947"))
