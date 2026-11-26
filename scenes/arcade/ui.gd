@@ -104,6 +104,8 @@ func _ready() -> void:
 	score_label.add_theme_font_override("font",PIXEL)
 	score_label.pivot_offset = Vector2(0,13)
 	danger_label = _label(hud_root,Rect2(310,15,340,22),"",12)
+	# The arcade language toggle already localizes this label.
+	danger_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_icon(hud_root,Rect2(806,22,32,32),ArcadeUIIcon.Kind.CLOCK)
 	clock_title = _left_label(hud_root,Rect2(843,15,98,16),tr2("剩余时间","TIME LEFT"),10,ArcadeUISkin.MUTED)
 	time_label = _left_label(hud_root,Rect2(843,32,98,25),"1:00",18)
