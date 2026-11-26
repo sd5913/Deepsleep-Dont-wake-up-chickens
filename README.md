@@ -99,3 +99,7 @@ godot --headless --path . --export-release Web build/web/index.html
 四图分别使用轻声鸡叫、羊叫、松鼠吱声和狗叫（像素合成拟声）。玩家位于动物视野扇形外、距离边缘不足42个屏幕像素且边缘正在靠近时，发出轻声提示；越近音量越明显。不会改变视野、警戒或巡逻规则。掩体阻挡、开局保护、隐匿、暂停及已有危险报警时不播接近提示。全场至少间隔2.4秒，同一只动物至少间隔5秒。真正被发现仍使用原报警声。
 
 专项检查：`godot --headless --audio-driver Dummy --path . --fixed-fps 60 --script tests/animal_approach_audio.gd`。试玩时可站在黄色扇形边缘外等动物走近，再对比木箱后、护盾生效时的表现。
+
+### 启动画面
+
+首次启动展示像素农场标题页，点击“开始游戏”或按 Enter 进入地图与小关选择；不会直接开始计时。右上角可切换中英文。暂停、结算和中途退出保留原有选择界面，直接选择下一局，不重复展示启动页。专项检查：`godot --headless --path . --script tests/title_screen.gd`。

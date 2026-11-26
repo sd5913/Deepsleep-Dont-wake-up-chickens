@@ -15,6 +15,10 @@ const FONT := preload("res://assets/fonts/CoopUI.ttf")
 const PIXEL := preload("res://assets/fonts/PressStart2P-Regular.ttf")
 const STAGE_ZH := ["小鸡舍", "鸡舍院落", "扩建农场", "大型农场"]
 const STAGE_EN := ["Coop", "Yard", "Farm", "Estate"]
+var title_screen: ColorRect
+var title_start_button: Button
+var title_heading: Control
+var _title_age := 0.0
 var language := "zh"
 var screen: Control
 var hud_root: Control
@@ -356,6 +360,10 @@ func _button(parent: Node, rect: Rect2, text: String, callback: Callable) -> But
 	return button
 
 func _process(delta: float) -> void:
+	if is_instance_valid(title_screen) and title_screen.visible:
+		_title_age += delta
+		title_heading.position.y = roundf(sin(_title_age*1.6)*2.0)
+
 	if is_instance_valid(transition_screen) and transition_screen.visible and is_instance_valid(transition_thief):
 		transition_thief.update_pose(Vector2.RIGHT,true,&"idle",delta)
 	storage_notice.visible = _profile != null and (not _profile.storage_issue.is_empty() or not _profile.saved) and not overlay.visible and not (is_instance_valid(transition_screen) and transition_screen.visible)
@@ -677,6 +685,7 @@ func hide_transition() -> void:
 	if is_instance_valid(transition_screen): transition_screen.hide()
 
 func hide_menu() -> void:
+	if is_instance_valid(title_screen): title_screen.hide()
 	overlay.hide()
 	hud_root.show()
 	_running = true
@@ -704,3 +713,70 @@ func try_alert_qte() -> int:
 	_qte_feedback_result = 1 if hit else 0
 	_qte_feedback_left = 0.75
 	return _qte_feedback_result
+
+func show_title() -> void:
+	if is_instance_valid(title_screen):
+		screen.remove_child(title_screen)
+		title_screen.queue_free()
+	hud_root.hide()
+	pause_button.hide()
+	_running = false
+	title_screen = ColorRect.new()
+	title_screen.name = "TitleScreen"
+	title_screen.color = Color("183e55")
+	title_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	screen.add_child(title_screen)
+	var landscape := Control.new()
+	landscape.set_script(preload("res://scenes/arcade/title_landscape.gd"))
+	landscape.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	title_screen.add_child(landscape)
+	title_heading = Control.new()
+	title_heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_screen.add_child(title_heading)
+	var badge := _label(title_heading,Rect2(280,103,400,24),"A LITTLE FARM. A BIG HARVEST.",10)
+	badge.add_theme_font_override("font",PIXEL)
+	badge.add_theme_color_override("font_color",Color("e2e6bd"))
+	badge.add_theme_constant_override("outline_size",4)
+	badge.add_theme_color_override("font_outline_color",Color("244955"))
+	var shadow := _label(title_heading,Rect2(166,150,636,90),tr2("夜访农场","NIGHT FARM"),68 if language == "zh" else 43)
+	shadow.add_theme_color_override("font_color",Color("173546"))
+	shadow.add_theme_constant_override("outline_size",12)
+	shadow.add_theme_color_override("font_outline_color",Color("173546"))
+	var heading := _label(title_heading,Rect2(160,143,636,90),tr2("夜访农场","NIGHT FARM"),68 if language == "zh" else 43)
+	if language == "en":
+		heading.add_theme_font_override("font",PIXEL)
+		shadow.add_theme_font_override("font",PIXEL)
+	heading.add_theme_color_override("font_color",Color("ffe2a0"))
+	heading.add_theme_constant_override("outline_size",8)
+	heading.add_theme_color_override("font_outline_color",Color("343c43"))
+	var sub := _label(title_heading,Rect2(230,238,500,27),"POCKET HARVEST",18)
+	sub.add_theme_font_override("font",PIXEL)
+	sub.add_theme_color_override("font_color",Color("e7eece"))
+	sub.add_theme_constant_override("outline_size",5)
+	sub.add_theme_color_override("font_outline_color",Color("244955"))
+	title_start_button = _button(title_screen,Rect2(344,302,272,64),tr2("开始游戏","START GAME"),_enter_level_selection)
+	title_start_button.name = "StartGame"
+	title_start_button.add_theme_stylebox_override("normal",ArcadeUISkin.button("primary"))
+	title_start_button.add_theme_font_size_override("font_size",24 if language == "zh" else 20)
+	var prompt := _label(title_screen,Rect2(310,376,340,20),"PRESS ENTER TO START",10)
+	prompt.add_theme_font_override("font",PIXEL)
+	prompt.add_theme_constant_override("outline_size",4)
+	prompt.add_theme_color_override("font_outline_color",Color("244955"))
+	_label(title_screen,Rect2(285,408,390,24),tr2("躲开巡视，装满你的收获袋。","Dodge the patrol. Fill your harvest bag."),15)
+	_button(title_screen,Rect2(812,22,120,42),"English" if language == "zh" else "中文",func():
+		language = "en" if language == "zh" else "zh"
+		show_title())
+	_label(title_screen,Rect2(200,499,560,22),tr2("四座小农场 · 十六次丰收冒险","FOUR FARMS · SIXTEEN LITTLE ADVENTURES"),12)
+	title_start_button.grab_focus()
+
+func _enter_level_selection() -> void:
+	if not is_instance_valid(title_screen) or not title_screen.visible: return
+	title_screen.hide()
+	show_menu(_profile,_selected,_result,false,_map_selected)
+	if is_instance_valid(primary_button): primary_button.grab_focus()
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if is_instance_valid(title_screen) and title_screen.visible and event.is_action_pressed("ui_accept") and not event.is_echo():
+		audio_confirm.emit()
+		_enter_level_selection()
+		get_viewport().set_input_as_handled()

@@ -102,6 +102,7 @@ func _ready() -> void:
 	world.process_mode = Node.PROCESS_MODE_DISABLED
 	ui.show_menu(profile,selected_level,{},false,selected_map)
 	_update_hud()
+	ui.show_title()
 
 func _select_level(level: int) -> void:
 	if running or transitioning or level < 1 or level > 4: return
