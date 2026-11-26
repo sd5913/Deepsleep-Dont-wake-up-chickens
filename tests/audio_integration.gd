@@ -12,7 +12,7 @@ func run() -> void:
  game.profile.powerup_tutorials = [true,true,true]
  root.add_child(game)
  await process_frame
- check(game.audio.CUES.size() == 45,"All effects load")
+ check(game.audio.CUES.size() == 49,"All effects load")
  for i in range(1,5):
   game.selected_map = i
   game.begin_round(1,i)
@@ -40,5 +40,5 @@ func run() -> void:
  game.queue_free()
  await process_frame
  DirAccess.remove_absolute("user://audio-integration-test.json")
- if failures == 0: print("PASS: 45 cues, four looped map tracks, powerup activation/refresh/expiry, batched rewards, pause and caught outcome")
+ if failures == 0: print("PASS: 49 cues, four looped map tracks, powerup activation/refresh/expiry, batched rewards, pause and caught outcome")
  quit(1 if failures else 0)

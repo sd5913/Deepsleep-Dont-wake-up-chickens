@@ -1,6 +1,10 @@
 extends Node
 
 const CUES := {
+ "47_dog_near": preload("res://assets/audio/gameplay/47_dog_near.wav"),
+ "46_squirrel_near": preload("res://assets/audio/gameplay/46_squirrel_near.wav"),
+ "45_sheep_near": preload("res://assets/audio/gameplay/45_sheep_near.wav"),
+ "44_hen_near": preload("res://assets/audio/gameplay/44_hen_near.wav"),
 	"01_pickup_single": preload("res://assets/audio/gameplay/01_pickup_single.wav"),
 	"02_pickup_batch": preload("res://assets/audio/gameplay/02_pickup_batch.wav"),
 	"03_pickup_gold": preload("res://assets/audio/gameplay/03_pickup_gold.wav"),
@@ -70,7 +74,7 @@ func _ready() -> void:
   add_child(voice)
   voices.append(voice)
 
-func play(cue: String, urgent := false, ui := false) -> void:
+func play(cue: String, urgent := false, ui := false, gain_db := 0.0) -> void:
  if not effects_enabled or not CUES.has(cue): return
  var now := Time.get_ticks_msec()
  if now < int(cooldowns.get(cue,0)): return
@@ -84,7 +88,7 @@ func play(cue: String, urgent := false, ui := false) -> void:
   if not urgent: return
   chosen = voices[0]
  chosen.stream = CUES[cue]
- chosen.volume_db = -2.0
+ chosen.volume_db = -2.0 + gain_db
  chosen.play()
  if urgent: duck_left = 0.9
 

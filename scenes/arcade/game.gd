@@ -33,6 +33,7 @@ var world: ArcadeWorld
 var player: CoopPlayer
 var ui: ArcadeUI
 var camera: Camera2D
+var approach_audio := AnimalApproachAudio.new()
 var audio: Node
 var _pickup_count := 0
 var _pickup_gold := false
@@ -172,6 +173,7 @@ func _build_world(level: int) -> void:
 	_powerup_intro_kind = -1
 	farmer = null
 	_was_seen = false
+	approach_audio.reset()
 	_detection_cooldown = 0.0
 	_reset_shake()
 	_farmer_warning = 0.0
@@ -281,6 +283,7 @@ func _process(delta: float) -> void:
 	pickup_circle.queue_redraw()
 	_update_guards(delta)
 	if not running: return
+	approach_audio.advance(self,delta)
 	_update_shake(delta)
 	_update_pickup_feedback(get_global_mouse_position())
 	if time_left <= 10.0 and not _last_seconds_announced:

@@ -93,3 +93,9 @@ godot --headless --path . --export-release Web build/web/index.html
 音频专项检查：`godot --headless --audio-driver Dummy --path . --fixed-fps 60 --script tests/audio_integration.gd`。道具、整圈拾取与逃脱、蛇事件回归检查已通过；最终浏览器听感仍需试玩。Web 导出曾因本机缺少 4.5.1 网页导出模板未完成。
 
 试玩时分别选择四张地图，核对配乐、批量拾取、金色奖励和倍率；接触三种道具，检查首次教学暂停、续时和到期；触发农夫和蛇，检查危险提示、暂停恢复及正常／被抓结算。
+
+### 动物接近提示
+
+四图分别使用轻声鸡叫、羊叫、松鼠吱声和狗叫（像素合成拟声）。玩家位于动物视野扇形外、距离边缘不足42个屏幕像素且边缘正在靠近时，发出轻声提示；越近音量越明显。不会改变视野、警戒或巡逻规则。掩体阻挡、开局保护、隐匿、暂停及已有危险报警时不播接近提示。全场至少间隔2.4秒，同一只动物至少间隔5秒。真正被发现仍使用原报警声。
+
+专项检查：`godot --headless --audio-driver Dummy --path . --fixed-fps 60 --script tests/animal_approach_audio.gd`。试玩时可站在黄色扇形边缘外等动物走近，再对比木箱后、护盾生效时的表现。
